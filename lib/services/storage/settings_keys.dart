@@ -258,6 +258,11 @@ class SettingsKeys {
     true,
     group: SettingGroup.proxy,
   );
+  static const tvUpdateServer = SettingKey<String>(
+    'tvUpdateServer',
+    '',
+    group: SettingGroup.proxy,
+  );
   static const enableBangumiProxy = SettingKey<bool>(
     _SettingBoxKey.enableBangumiProxy,
     true,
@@ -602,6 +607,7 @@ class SettingsKeys {
     oledEnhance,
     displayMode,
     enableGitProxy,
+    tvUpdateServer,
     enableBangumiProxy,
     imageAcceleration,
     bangumiAcceleration,

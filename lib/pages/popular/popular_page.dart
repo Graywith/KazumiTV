@@ -13,6 +13,8 @@ import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/platform/desktop_window_config.dart';
 import 'package:kazumi/bean/appbar/drag_to_move_bar.dart' as dtb;
 import 'package:kazumi/utils/device.dart';
+import 'package:kazumi/bean/tv/tv_support.dart';
+import 'package:kazumi/pages/history/continue_watching_section.dart';
 
 class PopularPage extends StatefulWidget {
   const PopularPage({
@@ -71,6 +73,8 @@ class _PopularPageState extends State<PopularPage> {
         controller: scrollController,
         slivers: [
           buildSliverAppBar(),
+          if (isTv)
+            const SliverToBoxAdapter(child: ContinueWatchingSection()),
           SliverToBoxAdapter(
             child: Observer(
               builder: (_) => AnimatedOpacity(

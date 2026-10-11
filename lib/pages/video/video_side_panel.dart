@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -32,9 +33,15 @@ class VideoSidePanelState extends State<VideoSidePanel>
   late final Animation<double> _opacity =
       _animation.drive(CurveTween(curve: Curves.easeIn));
 
+  final _focus = FocusScopeNode(debugLabel: 'TV episodes');
+  LocalHistoryEntry? _entry;
+  bool _disposed = false;
+
   bool get _isOpening =>
       _animation.status == AnimationStatus.forward ||
       _animation.status == AnimationStatus.completed;
+
+  bool get isOpen => _isOpening;
 
   void toggle() {
     if (_isOpening) {
@@ -45,11 +52,24 @@ class VideoSidePanelState extends State<VideoSidePanel>
       } else {
         _animation.forward();
       }
+      if (isTv) {
+        _entry = LocalHistoryEntry(impliesAppBarDismissal: false, onRemove: () {
+          _entry = null;
+          if (!_disposed) close();
+        });
+        ModalRoute.of(context)!.addLocalHistoryEntry(_entry!);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _focus.nextFocus();
+        });
+      }
       widget.onOpened?.call();
     }
   }
 
   void close() {
+    final entry = _entry;
+    _entry = null;
+    if (entry != null) { entry.remove(); return; }
     if (widget.disableAnimations) {
       _animation.value = 0;
     } else {
@@ -67,6 +87,9 @@ class VideoSidePanelState extends State<VideoSidePanel>
 
   @override
   void dispose() {
+    _disposed = true;
+    _entry?.remove();
+    _focus.dispose();
     _animation.dispose();
     super.dispose();
   }
@@ -120,7 +143,7 @@ class VideoSidePanelState extends State<VideoSidePanel>
               child: MediaQuery.removePadding(
                 context: context,
                 removeTop: true,
-                child: SafeArea(child: widget.child),
+                child: FocusScope(node: _focus, child: SafeArea(child: widget.child)),
               ),
             ),
           ),

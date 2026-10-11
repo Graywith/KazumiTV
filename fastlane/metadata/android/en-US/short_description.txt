@@ -1,1 +1,1 @@
-An anime collection APP based on custom rules.
+Anime browsing and playback for Android TV

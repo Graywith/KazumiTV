@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:kazumi/services/logging/logger.dart';
@@ -23,7 +24,7 @@ class DisplayModeService {
 
       // Restore system orientation on exit, including an existing landscape.
       await _attempt(() => SystemChrome.setPreferredOrientations(
-            fullscreen
+            (fullscreen || isTv)
                 ? [
                     DeviceOrientation.landscapeLeft,
                     DeviceOrientation.landscapeRight

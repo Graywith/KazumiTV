@@ -55,3 +55,7 @@ android/build/reports/problems/
 **/macos/Pods/
 **/ios/Podfile.lock
 **/macos/Podfile.lock
+
+# Private credentials for local TV builds
+.tv-secrets.json
+__pycache__/

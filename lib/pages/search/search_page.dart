@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -136,7 +138,27 @@ class _SearchPageState extends State<SearchPage> {
     final colors = Theme.of(context).colorScheme;
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: _input,
-      builder: (context, value, child) => SearchBar(
+      builder: (context, value, child) => Focus(
+        canRequestFocus: false,
+        onKeyEvent: (node, event) {
+          if (!isTv || event is! KeyDownEvent || !_inputFocus.hasFocus) {
+            return KeyEventResult.ignored;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.select ||
+              event.logicalKey == LogicalKeyboardKey.enter) {
+            SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+              event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+            _inputFocus.focusInDirection(event.logicalKey == LogicalKeyboardKey.arrowDown
+                ? TraversalDirection.down : TraversalDirection.up);
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: SearchBar(
         controller: _input,
         focusNode: _inputFocus,
         hintText: '搜索番剧名称',
@@ -164,7 +186,7 @@ class _SearchPageState extends State<SearchPage> {
           ),
         ],
         onSubmitted: _submit,
-      ),
+      )),
     );
   }
 

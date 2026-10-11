@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:kazumi/bean/settings/settings_list.dart';
 import 'package:kazumi/bean/widget/content_section.dart';
 import 'package:kazumi/bean/widget/state_presentation.dart';
@@ -742,7 +743,7 @@ class _ExpressiveActionState extends State<_ExpressiveAction> {
                   return widget.foreground.withValues(alpha: .10);
                 }
                 if (states.contains(WidgetState.focused)) {
-                  return widget.foreground.withValues(alpha: .12);
+                  return widget.foreground.withValues(alpha: isTv ? .45 : .12);
                 }
                 if (states.contains(WidgetState.hovered)) {
                   return widget.foreground.withValues(alpha: .08);

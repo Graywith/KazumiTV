@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'dart:async';
 
 import 'package:canvas_danmaku/models/danmaku_content_item.dart';
@@ -350,6 +351,8 @@ class _VideoPageState extends State<VideoPage>
     final bool playerLoading = playerController.playback.loading;
     return Stack(
       children: [
+        if (!isTv || playerLoading || videoPageController.loading ||
+            videoPageController.errorMessage != null)
         Positioned.fill(
           child: Stack(
             children: [
@@ -475,6 +478,8 @@ class _VideoPageState extends State<VideoPage>
                   changeEpisode: changeEpisode,
                   onBackPressed: _onBackPressed,
                   keyboardFocus: keyboardFocus,
+                  isTvInputBlocked: () =>
+                      _sidePanelKey.currentState?.isOpen ?? false,
                   disableAnimations: disableAnimations,
                   pauseForTimedShutdown: pauseForTimedShutdown,
                 ),

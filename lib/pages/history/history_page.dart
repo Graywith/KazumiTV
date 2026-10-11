@@ -141,7 +141,7 @@ class _HistoryPageState extends State<HistoryPage> {
             child: HistoryListView(
               entries: entries,
               editing: _editing,
-              itemBuilder: (history, borderRadius) => _HistoryCard(
+              itemBuilder: (history, borderRadius) => HistoryCard(
                 history: history,
                 borderRadius: borderRadius,
                 editing: _editing,
@@ -156,13 +156,15 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 }
 
-class _HistoryCard extends StatefulWidget {
-  const _HistoryCard({
+class HistoryCard extends StatefulWidget {
+  const HistoryCard({
+    super.key,
     required this.history,
     required this.onDelete,
     required this.editing,
     required this.busy,
     required this.borderRadius,
+    this.continueWatching = false,
   });
 
   final History history;
@@ -170,12 +172,13 @@ class _HistoryCard extends StatefulWidget {
   final bool busy;
   final Future<void> Function() onDelete;
   final BorderRadius borderRadius;
+  final bool continueWatching;
 
   @override
-  State<_HistoryCard> createState() => _HistoryCardState();
+  State<HistoryCard> createState() => _HistoryCardState();
 }
 
-class _HistoryCardState extends State<_HistoryCard> with KazumiDialogOwner {
+class _HistoryCardState extends State<HistoryCard> with KazumiDialogOwner {
   final CollectController _collectController = inject<CollectController>();
   final HistoryPlaybackService _playbackService =
       inject<HistoryPlaybackService>();
@@ -225,6 +228,7 @@ class _HistoryCardState extends State<_HistoryCard> with KazumiDialogOwner {
         borderRadius: widget.borderRadius,
         editing: widget.editing,
         busy: widget.busy,
+        continueWatching: widget.continueWatching,
         onPlay: _play,
         onDelete: widget.onDelete,
         onDetails: () =>

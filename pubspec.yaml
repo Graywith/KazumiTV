@@ -5,7 +5,7 @@ version: 2.3.7+20307
 
 environment:
   sdk: ">=3.10.0 <4.0.0"
-  flutter: 3.47.6
+  flutter: ">=3.44.8"
 
 dependencies:
   flutter:
@@ -104,6 +104,10 @@ dependencies:
       path: ./media_kit_video
   macos_secure_bookmarks: ^0.2.1
 
+# Flutter 3.44 pins meta 1.18; the existing media_kit native hooks require 1.19.
+dependency_overrides:
+  meta: ^1.19.0
+
 dev_dependencies:
   path_provider_platform_interface: ^2.1.2
   plugin_platform_interface: ^2.1.8
@@ -125,9 +129,8 @@ flutter_launcher_icons:
   image_path: assets/images/logo/logo_android.png
   image_path_android: assets/images/logo/logo_android.png
   image_path_ios: assets/images/logo/logo_ios.png
-  adaptive_icon_background: "#ffffff"
+  adaptive_icon_background: "#eef4dc"
   adaptive_icon_foreground: assets/images/logo/logo_android.png
-  adaptive_icon_monochrome: assets/images/logo/logo_android.png
   macos:
     generate: true
     image_path: assets/images/logo/logo_rounded.png

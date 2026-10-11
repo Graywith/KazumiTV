@@ -14,6 +14,17 @@ import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/date_time.dart';
 import 'package:kazumi/utils/crypto.dart';
 import 'package:kazumi/utils/version.dart';
+import 'package:kazumi/bean/tv/tv_support.dart';
+
+const tvUpdateAbi = String.fromEnvironment(
+  'TV_UPDATE_ABI',
+  defaultValue: 'arm64-v8a',
+);
+const tvUpdateBase = String.fromEnvironment(
+  'TV_UPDATE_BASE',
+  defaultValue: 'http://10.0.2.2:18080',
+);
+
 
 enum InstallationType {
   windowsMsix,
@@ -97,7 +108,7 @@ List<String> getUpdateFilePatterns(InstallationType installationType) {
     case InstallationType.macosDmg:
       return ['macos', '.dmg'];
     case InstallationType.androidApk:
-      return ['android', '.apk'];
+      return isTv ? ['kazumi-tv-', '$tvUpdateAbi-', '.apk'] : ['android', '.apk'];
     case InstallationType.linuxDeb:
     case InstallationType.linuxTar:
     case InstallationType.ios:
@@ -114,6 +125,14 @@ class AutoUpdater {
   AutoUpdater._internal();
 
   final DownloadHttpClient _downloadClient = DownloadHttpClient.instance;
+  // Local updates must not go through the user's internet proxy.
+  final Dio _tvUpdateClient = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 30),
+    ),
+  );
+
 
   List<InstallationType> _detectAvailableInstallationTypes() {
     if (Platform.isWindows) {
@@ -162,12 +181,31 @@ class AutoUpdater {
   }
 
   Future<Map<String, dynamic>> _latestRelease() async {
-    final raw = await _downloadClient.getPlain(ApiEndpoints.latestAppMirror);
+    final savedBase = isTv ? GStorage.getSetting(SettingsKeys.tvUpdateServer) : '';
+    final base = savedBase.isEmpty ? tvUpdateBase : savedBase;
+    final raw = isTv
+        ? (await _tvUpdateClient.get<String>(
+            '$base/latest-$tvUpdateAbi.json',
+            options: Options(responseType: ResponseType.plain),
+          )).data!
+        : await _downloadClient.getPlain(ApiEndpoints.latestAppMirror);
     final data = json.decode(raw);
     if (data is! Map) {
       throw Exception('Invalid update response');
     }
-    return Map<String, dynamic>.from(data);
+    final release = Map<String, dynamic>.from(data);
+    if (isTv) {
+      if (release['package_id'] != 'io.github.graywith.kazumitv' ||
+          release['abi'] != tvUpdateAbi) {
+        throw Exception('TV 更新源的应用或架构不匹配');
+      }
+      for (final asset in release['assets'] as List) {
+        asset['browser_download_url'] = Uri.parse(
+          '$base/',
+        ).resolve(asset['browser_download_url'] as String).toString();
+      }
+    }
+    return release;
   }
 
   Future<void> autoCheckForUpdates() async {
@@ -622,7 +660,8 @@ class AutoUpdater {
 
     checkCancelled();
 
-    await _downloadClient.download(
+    final download = isTv ? _tvUpdateClient.download : _downloadClient.download;
+    await download(
       url,
       filePath,
       cancelToken: cancelToken,

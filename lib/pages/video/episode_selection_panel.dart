@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:kazumi/bean/tv/tv_support.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
@@ -636,6 +637,9 @@ class _EpisodeRowState extends State<_EpisodeRow>
             onHighlightChanged: _setPressed,
             excludeFromSemantics: true,
             overlayColor: WidgetStateProperty.resolveWith((states) {
+              if (isTv && states.contains(WidgetState.focused)) {
+                return foreground.withValues(alpha: .45);
+              }
               if (states.contains(WidgetState.pressed) ||
                   states.contains(WidgetState.focused)) {
                 return foreground.withValues(alpha: 0.1);

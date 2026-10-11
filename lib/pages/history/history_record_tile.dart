@@ -17,6 +17,7 @@ class HistoryRecordTile extends StatelessWidget {
     this.borderRadius = const BorderRadius.all(Radius.circular(24)),
     this.editing = false,
     this.busy = false,
+    this.continueWatching = false,
   });
 
   final History history;
@@ -28,6 +29,7 @@ class HistoryRecordTile extends StatelessWidget {
   final BorderRadius borderRadius;
   final bool editing;
   final bool busy;
+  final bool continueWatching;
 
   String get _position {
     final progress = history.progresses[history.lastWatchEpisode]?.progress;
@@ -62,7 +64,9 @@ class HistoryRecordTile extends StatelessWidget {
     return Dismissible(
       key: ValueKey(history.key),
       direction:
-          busy || editing ? DismissDirection.none : DismissDirection.endToStart,
+          busy || editing || continueWatching
+              ? DismissDirection.none
+              : DismissDirection.endToStart,
       // The parent removes saved deletions; failed writes keep the row usable.
       confirmDismiss: (_) async {
         await onDelete();
@@ -195,6 +199,7 @@ class HistoryRecordTile extends StatelessWidget {
   }
 
   Widget _actions(BuildContext context, {required bool wide}) {
+    if (continueWatching) return const SizedBox.shrink();
     final colors = Theme.of(context).colorScheme;
     if (busy) {
       return const SizedBox(

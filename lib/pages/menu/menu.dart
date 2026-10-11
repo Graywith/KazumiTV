@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:flutter/services.dart';
@@ -187,6 +188,11 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
                 onPressed: () => context.pushNamed('/search/'),
                 child: const Icon(Icons.search),
               ),
+              trailing: isTv ? IconButton(
+                tooltip: '历史记录',
+                onPressed: () => context.pushNamed('/settings/history/'),
+                icon: const Icon(Icons.history),
+              ) : null,
               labelType: NavigationRailLabelType.selected,
               destinations: const <NavigationRailDestination>[
                 NavigationRailDestination(

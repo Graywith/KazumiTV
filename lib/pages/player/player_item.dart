@@ -1,3 +1,5 @@
+import 'package:kazumi/pages/player/tv_player_controls.dart';
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:kazumi/pages/player/player_item_panel.dart';
@@ -46,6 +48,7 @@ class PlayerItem extends StatefulWidget {
     required this.videoPageController,
     required this.fillsWindow,
     this.onToggleSidePanel,
+    this.isTvInputBlocked,
     required this.changeEpisode,
     required this.onBackPressed,
     required this.keyboardFocus,
@@ -57,6 +60,7 @@ class PlayerItem extends StatefulWidget {
   final VideoPageController videoPageController;
   final bool fillsWindow;
   final VoidCallback? onToggleSidePanel;
+  final bool Function()? isTvInputBlocked;
   final Future<void> Function(int episode, {int currentRoad, int offset})
       changeEpisode;
   final VoidCallback onBackPressed;
@@ -1418,7 +1422,7 @@ class _PlayerItemState extends State<PlayerItem>
                 },
                 child: SizedBox.expand(
                   child: Stack(alignment: Alignment.center, children: [
-                    PlayerKeyboardShortcuts(
+                    if (!isTv) PlayerKeyboardShortcuts(
                       focusScopeNode: widget.keyboardFocus,
                       actions: keyboardActions,
                       longPressActions: keyboardLongPressActions,
@@ -1525,7 +1529,14 @@ class _PlayerItemState extends State<PlayerItem>
                     (Platform.isAndroid &&
                             (videoPageController.isPip || _pipEnterRequested))
                         ? const SizedBox.shrink()
-                        : PlayerItemPanel(
+                        : isTv ? TvPlayerControls(
+                            player: playerController,
+                            scope: widget.keyboardFocus,
+                            onEpisode: handlePreNextEpisode,
+                            onBack: widget.onBackPressed,
+                            onEpisodes: widget.onToggleSidePanel,
+                            isBlocked: widget.isTvInputBlocked,
+                          ) : PlayerItemPanel(
                             fillsWindow: widget.fillsWindow,
                             playerController: playerController,
                             videoPageController: videoPageController,
@@ -1557,7 +1568,7 @@ class _PlayerItemState extends State<PlayerItem>
                             showScreenshotCandidates: showScreenshotCandidates,
                             skipOP: skipOP,
                           ),
-                    Positioned.fill(
+                    if (!isTv) Positioned.fill(
                       left: 16,
                       top: 25,
                       right: 15,
