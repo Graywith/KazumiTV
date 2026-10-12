@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
@@ -19,12 +20,28 @@ class ScaffoldMenu extends StatefulWidget {
 
 class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
   final _outletKey = GlobalKey<RouterOutletState>();
+  final _tvMenuFocus = List.generate(6, (_) => FocusNode());
   late int _selectedIndex = menu.indexForPath(widget.location);
   DateTime? _lastExitPromptAt;
+  bool _tvSettingsOpen = false;
 
   /// The shell sits at the bottom of the root stack and stays mounted while
   /// other pages cover it, so it publishes that state for its subtree.
   bool _isCovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (isTv) FocusManager.instance.addEarlyKeyEventHandler(_cancelExitOnInput);
+  }
+
+  KeyEventResult _cancelExitOnInput(KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey != LogicalKeyboardKey.goBack &&
+        event.logicalKey != LogicalKeyboardKey.escape)
+      _lastExitPromptAt = null;
+    return KeyEventResult.ignored;
+  }
 
   @override
   void didUpdateWidget(covariant ScaffoldMenu oldWidget) {
@@ -45,6 +62,11 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
 
   @override
   void dispose() {
+    if (isTv)
+      FocusManager.instance.removeEarlyKeyEventHandler(_cancelExitOnInput);
+    for (final node in _tvMenuFocus) {
+      node.dispose();
+    }
     rootRouteObserver.unsubscribe(this);
     super.dispose();
   }
@@ -59,18 +81,49 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
     if (!mounted || _isCovered == value) {
       return;
     }
+    _lastExitPromptAt = null;
     setState(() => _isCovered = value);
+  }
+
+  void _openTvPage(String path) {
+    if (_tvSettingsOpen) return;
+    _tvSettingsOpen = true;
+    unawaited(
+      context.pushNamed<void>(path).then((_) {
+        if (!mounted) return;
+        _tvMenuFocus[5].requestFocus();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _tvSettingsOpen = false;
+        });
+      }),
+    );
   }
 
   void _selectDestination(int index) {
     _lastExitPromptAt = null;
+    if (isTv && index == 4) {
+      _openTvPage('/settings/player');
+      return;
+    }
     if (index == _selectedIndex) {
       return;
     }
     final outlet = _outletKey.currentState;
     if (outlet == null) return;
+    final sidebarFocus = isTv ? _tvMenuFocus[index + 1] : null;
     outlet.navigate('/tab${menu.getPath(index)}/');
     setState(() => _selectedIndex = index);
+    if (sidebarFocus != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future<void>.delayed(Duration.zero, () {
+          if (mounted &&
+              _selectedIndex == index &&
+              sidebarFocus.context != null) {
+            sidebarFocus.requestFocus();
+          }
+        });
+      });
+    }
   }
 
   void _handleSystemBack(BuildContext context) {
@@ -87,7 +140,7 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
     final now = DateTime.now();
     final lastPromptAt = _lastExitPromptAt;
     if (lastPromptAt == null ||
-        now.difference(lastPromptAt) > const Duration(seconds: 2)) {
+        now.difference(lastPromptAt) >= const Duration(seconds: 2)) {
       _lastExitPromptAt = now;
       KazumiDialog.showToast(message: '再按一次退出应用', context: context);
       return;
@@ -169,6 +222,76 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
     );
   }
 
+  Widget _tvRail(BuildContext context, int selectedIndex) {
+    const icons = [
+      Icons.home_outlined,
+      Icons.timeline,
+      Icons.favorite_border,
+      Icons.history,
+      Icons.settings_outlined,
+    ];
+    const labels = ['推荐', '时间表', '追番', '历史', '设置'];
+    final colors = Theme.of(context).colorScheme;
+    return Focus(
+      canRequestFocus: false,
+      onKeyEvent: (_, event) {
+        if (event is KeyUpEvent) return KeyEventResult.ignored;
+        final step = event.logicalKey == LogicalKeyboardKey.arrowDown
+            ? 1
+            : event.logicalKey == LogicalKeyboardKey.arrowUp
+            ? -1
+            : 0;
+        if (step == 0) return KeyEventResult.ignored;
+        final index = _tvMenuFocus.indexWhere((node) => node.hasFocus);
+        if (index < 0) return KeyEventResult.ignored;
+        _tvMenuFocus[(index + step).clamp(0, _tvMenuFocus.length - 1)]
+            .requestFocus();
+        return KeyEventResult.handled;
+      },
+      child: SizedBox(
+        width: 88,
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            IconButton(
+              focusNode: _tvMenuFocus[0],
+              tooltip: '搜索',
+              onPressed: () => context.pushNamed('/search/'),
+              icon: const Icon(Icons.search),
+            ),
+            const Spacer(),
+            for (var index = 0; index < labels.length; index++)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                child: TextButton(
+                  focusNode: _tvMenuFocus[index + 1],
+                  onFocusChange: (focused) {
+                    if (focused) _selectDestination(index);
+                  },
+                  onPressed: () => _selectDestination(index),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(76, 58),
+                    backgroundColor: index < 4 && index == selectedIndex
+                        ? colors.secondaryContainer
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icons[index]),
+                      const SizedBox(height: 4),
+                      Text(labels[index]),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _sideMenu(BuildContext context, int selectedIndex) {
     const borderRadius = BorderRadius.only(
       topLeft: Radius.circular(16),
@@ -179,46 +302,53 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
       body: Row(
         children: [
           EmbeddedNativeControlArea(
-            child: NavigationRail(
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-              groupAlignment: 1,
-              leading: FloatingActionButton(
-                elevation: 0,
-                heroTag: null,
-                onPressed: () => context.pushNamed('/search/'),
-                child: const Icon(Icons.search),
-              ),
-              trailing: isTv ? IconButton(
-                tooltip: '历史记录',
-                onPressed: () => context.pushNamed('/settings/history/'),
-                icon: const Icon(Icons.history),
-              ) : null,
-              labelType: NavigationRailLabelType.selected,
-              destinations: const <NavigationRailDestination>[
-                NavigationRailDestination(
-                  selectedIcon: Icon(Icons.home),
-                  icon: Icon(Icons.home_outlined),
-                  label: Text('推荐'),
-                ),
-                NavigationRailDestination(
-                  selectedIcon: Icon(Icons.timeline),
-                  icon: Icon(Icons.timeline_outlined),
-                  label: Text('时间表'),
-                ),
-                NavigationRailDestination(
-                  selectedIcon: Icon(Icons.favorite),
-                  icon: Icon(Icons.favorite_border),
-                  label: Text('追番'),
-                ),
-                NavigationRailDestination(
-                  selectedIcon: Icon(Icons.settings),
-                  icon: Icon(Icons.settings_outlined),
-                  label: Text('我的'),
-                ),
-              ],
-              selectedIndex: selectedIndex,
-              onDestinationSelected: _selectDestination,
-            ),
+            child: isTv
+                ? _tvRail(context, selectedIndex)
+                : NavigationRail(
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer,
+                    groupAlignment: 1,
+                    leading: FloatingActionButton(
+                      elevation: 0,
+                      heroTag: null,
+                      onPressed: () => context.pushNamed('/search/'),
+                      child: const Icon(Icons.search),
+                    ),
+                    trailing: isTv
+                        ? IconButton(
+                            tooltip: '历史记录',
+                            onPressed: () =>
+                                context.pushNamed('/settings/history/'),
+                            icon: const Icon(Icons.history),
+                          )
+                        : null,
+                    labelType: NavigationRailLabelType.selected,
+                    destinations: const <NavigationRailDestination>[
+                      NavigationRailDestination(
+                        selectedIcon: Icon(Icons.home),
+                        icon: Icon(Icons.home_outlined),
+                        label: Text('推荐'),
+                      ),
+                      NavigationRailDestination(
+                        selectedIcon: Icon(Icons.timeline),
+                        icon: Icon(Icons.timeline_outlined),
+                        label: Text('时间表'),
+                      ),
+                      NavigationRailDestination(
+                        selectedIcon: Icon(Icons.favorite),
+                        icon: Icon(Icons.favorite_border),
+                        label: Text('追番'),
+                      ),
+                      NavigationRailDestination(
+                        selectedIcon: Icon(Icons.settings),
+                        icon: Icon(Icons.settings_outlined),
+                        label: Text('我的'),
+                      ),
+                    ],
+                    selectedIndex: selectedIndex,
+                    onDestinationSelected: _selectDestination,
+                  ),
           ),
           Expanded(child: _outlet(context, borderRadius: borderRadius)),
         ],

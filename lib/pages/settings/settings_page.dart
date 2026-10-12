@@ -1,5 +1,6 @@
 import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
@@ -46,12 +47,13 @@ const List<_SettingsGroup> _settingsGroups = [
         icon: Icons.subtitles_rounded,
         path: '/settings/danmaku',
       ),
-      _SettingsCategory(
-        label: '操作设置',
-        description: '播放器按键映射',
-        icon: Icons.keyboard_rounded,
-        path: '/settings/keyboard',
-      ),
+      if (!isTv)
+        _SettingsCategory(
+          label: '操作设置',
+          description: '播放器按键映射',
+          icon: Icons.keyboard_rounded,
+          path: '/settings/keyboard',
+        ),
     ],
   ),
   _SettingsGroup(
@@ -63,6 +65,13 @@ const List<_SettingsGroup> _settingsGroups = [
         icon: Icons.extension_rounded,
         path: '/settings/plugin',
       ),
+      if (isTv)
+        _SettingsCategory(
+          label: '离线下载',
+          description: '已缓存剧集与下载任务',
+          icon: Icons.download_rounded,
+          path: '/settings/download',
+        ),
       _SettingsCategory(
         label: '下载设置',
         description: '并发数与弹幕缓存',
@@ -167,6 +176,27 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final _outletKey = GlobalKey<RouterOutletState>();
   Object? _categoryNavigation;
+  final _sidebarFocus = FocusScopeNode();
+  final _playerFocus = FocusNode(debugLabel: 'TV playback settings');
+
+  @override
+  void initState() {
+    super.initState();
+    if (isTv)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future<void>.delayed(Duration.zero, () {
+          if (mounted) _playerFocus.requestFocus();
+        });
+      });
+  }
+
+  @override
+  void dispose() {
+    _sidebarFocus.dispose();
+    _playerFocus.dispose();
+    super.dispose();
+  }
+
   late String _location = _normalizePath(widget.location);
 
   String get _selectedCategoryPath => _categoryPath(_location);
@@ -183,7 +213,8 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _replaceCategory(String path) {
-    final outlet = _outletKey.currentState!;
+    final outlet = _outletKey.currentState;
+    if (outlet == null) return;
     // Nested pushes leave _location unchanged, so check the stack as well.
     if (!outlet.canPop && !_isSecondaryRoute && _selectedCategoryPath == path) {
       return;
@@ -209,12 +240,25 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _goBack() {
+    if (isTv) {
+      if (!_sidebarFocus.hasFocus) {
+        _sidebarFocus.requestFocus();
+      } else {
+        _exitSettings();
+      }
+      return;
+    }
     if (_outletKey.currentState?.maybePop() ?? false) return;
     _exitSettings();
   }
 
   void _exitSettings() {
-    if (!context.maybePop()) context.navigate('/tab/my');
+    if (isTv) {
+      Navigator.of(context).pop();
+      return;
+    }
+    if (!context.maybePop())
+      context.navigate(isTv ? '/tab/popular' : '/tab/my');
   }
 
   @override
@@ -222,57 +266,90 @@ class _SettingsPageState extends State<SettingsPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth > LayoutBreakpoint.compact['width']!;
-        return NavigatorPopHandler<Object?>(
-          onPopWithResult: (_) => _goBack(),
-          child: Scaffold(
-            appBar: wide
-                ? SysAppBar(
-                    title: const Text('设置'),
-                    leading: BackButton(onPressed: _exitSettings),
-                  )
-                : null,
-            body: SafeArea(
-              top: false,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Keep the outlet at the same tree position on resize.
-                  SizedBox(
-                    width: wide ? 280 : 0,
-                    child: Offstage(
-                      offstage: !wide,
-                      child: TvSettingsPane(
-                        child: _SettingsMenu(
-                          wide: true,
-                          selectedPath: _selectedCategoryPath,
-                          onSelect: _replaceCategory,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: TvSettingsPane(
-                      child: SettingsPaneScope(
-                        embedded: wide,
-                        showBackButton: _isSecondaryRoute,
-                        onBack: _goBack,
-                        child: NotificationListener<_SettingsCategorySelected>(
-                          onNotification: (notification) {
-                            _pushCategory(notification.path);
-                            return true;
-                          },
-                          child: Theme(
-                            data: Theme.of(context).copyWith(
-                              pageTransitionsTheme:
-                                  settingsPageTransitionsTheme,
+        return PopScope(
+          canPop: !isTv,
+          onPopInvokedWithResult: (didPop, result) {
+            if (isTv && !didPop) _goBack();
+          },
+          child: NavigatorPopHandler<Object?>(
+            enabled: !isTv,
+            onPopWithResult: (_) => _goBack(),
+            child: Scaffold(
+              appBar: wide
+                  ? SysAppBar(
+                      title: const Text('设置'),
+                      leading: BackButton(onPressed: _exitSettings),
+                    )
+                  : null,
+              body: SafeArea(
+                top: false,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Keep the outlet at the same tree position on resize.
+                    SizedBox(
+                      width: wide ? (isTv ? 210 : 280) : 0,
+                      child: Offstage(
+                        offstage: !wide,
+                        child: TvSettingsPane(
+                          child: FocusScope(
+                            node: _sidebarFocus,
+                            child: _SettingsMenu(
+                              wide: true,
+                              firstFocusNode: _playerFocus,
+                              selectedPath: _selectedCategoryPath,
+                              onSelect: _replaceCategory,
                             ),
-                            child: RouterOutlet(key: _outletKey),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: TvSettingsPane(
+                        child: Focus(
+                          canRequestFocus: false,
+                          onKeyEvent: (_, event) {
+                            if (!isTv ||
+                                event is KeyUpEvent ||
+                                event.logicalKey !=
+                                    LogicalKeyboardKey.arrowLeft)
+                              return KeyEventResult.ignored;
+                            var editingValue = false;
+                            FocusManager.instance.primaryFocus?.context
+                                ?.visitAncestorElements((element) {
+                                  if (element.widget is Slider ||
+                                      element.widget is EditableText)
+                                    editingValue = true;
+                                  return !editingValue;
+                                });
+                            if (editingValue) return KeyEventResult.ignored;
+                            _sidebarFocus.requestFocus();
+                            return KeyEventResult.handled;
+                          },
+                          child: SettingsPaneScope(
+                            embedded: wide,
+                            showBackButton: _isSecondaryRoute,
+                            onBack: _goBack,
+                            child:
+                                NotificationListener<_SettingsCategorySelected>(
+                                  onNotification: (notification) {
+                                    _pushCategory(notification.path);
+                                    return true;
+                                  },
+                                  child: Theme(
+                                    data: Theme.of(context).copyWith(
+                                      pageTransitionsTheme:
+                                          settingsPageTransitionsTheme,
+                                    ),
+                                    child: RouterOutlet(key: _outletKey),
+                                  ),
+                                ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -295,7 +372,8 @@ class SettingsIndexPage extends StatelessWidget {
         title: const Text('设置'),
         leading: BackButton(
           onPressed: () {
-            if (!context.maybePop()) context.navigate('/tab/my');
+            if (!context.maybePop())
+              context.navigate(isTv ? '/tab/popular' : '/tab/my');
           },
         ),
       ),
@@ -311,11 +389,13 @@ class _SettingsMenu extends StatelessWidget {
   const _SettingsMenu({
     required this.wide,
     this.selectedPath,
+    this.firstFocusNode,
     required this.onSelect,
   });
 
   final bool wide;
   final String? selectedPath;
+  final FocusNode? firstFocusNode;
   final ValueChanged<String> onSelect;
 
   @override
@@ -336,6 +416,9 @@ class _SettingsMenu extends StatelessWidget {
               for (final category in group.categories)
                 _RailDestination(
                   category: category,
+                  focusNode: category.path == '/settings/player'
+                      ? firstFocusNode
+                      : null,
                   selected: selectedPath == category.path,
                   onTap: () => onSelect(category.path),
                 ),
@@ -361,19 +444,37 @@ class _SettingsMenu extends StatelessWidget {
   }
 }
 
-class _RailDestination extends StatelessWidget {
+class _RailDestination extends StatefulWidget {
   const _RailDestination({
     required this.category,
+    this.focusNode,
     required this.selected,
     required this.onTap,
   });
 
   final _SettingsCategory category;
+  final FocusNode? focusNode;
   final bool selected;
   final VoidCallback onTap;
 
   @override
+  State<_RailDestination> createState() => _RailDestinationState();
+}
+
+class _RailDestinationState extends State<_RailDestination> {
+  late final _focusNode = widget.focusNode ?? FocusNode();
+
+  @override
+  void dispose() {
+    if (widget.focusNode == null) _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final category = widget.category;
+    final selected = widget.selected;
+    final onTap = widget.onTap;
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final foreground = selected
@@ -386,6 +487,19 @@ class _RailDestination extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
+          focusNode: _focusNode,
+          onFocusChange: isTv
+              ? (focused) {
+                  if (focused) {
+                    onTap();
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Future<void>.delayed(Duration.zero, () {
+                        if (mounted) _focusNode.requestFocus();
+                      });
+                    });
+                  }
+                }
+              : null,
           onTap: onTap,
           child: SizedBox(
             height: 56,

@@ -14,11 +14,13 @@ class BangumiInfoCardV extends StatefulWidget {
     required this.bangumiItem,
     required this.isLoading,
     required this.showRating,
+    this.primaryAction,
   });
 
   final BangumiItem bangumiItem;
   final bool isLoading;
   final bool showRating;
+  final Widget? primaryAction;
 
   @override
   State<BangumiInfoCardV> createState() => _BangumiInfoCardVState();
@@ -32,9 +34,7 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '  评分透视:',
-          ),
+          Text('  评分透视:'),
           SizedBox(height: 16),
           AspectRatio(
             aspectRatio: 2,
@@ -63,13 +63,13 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       var percentage =
                           widget.bangumiItem.votesCount[groupIndex] /
-                              widget.bangumiItem.votes *
-                              100;
+                          widget.bangumiItem.votes *
+                          100;
                       return BarTooltipItem(
                         '${percentage.toStringAsFixed(2)}% (${widget.bangumiItem.votesCount[groupIndex]}人)',
                         TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onInverseSurface),
+                          color: Theme.of(context).colorScheme.onInverseSurface,
+                        ),
                       );
                     },
                   ),
@@ -85,9 +85,10 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                             ? Theme.of(context).colorScheme.primary
                             : Theme.of(context).disabledColor,
                         width: 20,
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(5)),
-                      )
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(5),
+                        ),
+                      ),
                     ],
                     // showingTooltipIndicators: [0],
                   ),
@@ -140,23 +141,25 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                 Flexible(
                   child: AspectRatio(
                     aspectRatio: 0.65,
-                    child: LayoutBuilder(builder: (context, boxConstraints) {
-                      final double maxWidth = boxConstraints.maxWidth;
-                      final double maxHeight = boxConstraints.maxHeight;
-                      return Hero(
-                        transitionOnUserGestures: true,
-                        flightShuttleBuilder:
-                            NetworkImgLayer.heroFlightShuttleBuilder,
-                        tag: widget.bangumiItem.id,
-                        child: NetworkImgLayer(
-                          src: widget.bangumiItem.images['large'] ?? '',
-                          width: maxWidth,
-                          height: maxHeight,
-                          fadeInDuration: const Duration(milliseconds: 0),
-                          fadeOutDuration: const Duration(milliseconds: 0),
-                        ),
-                      );
-                    }),
+                    child: LayoutBuilder(
+                      builder: (context, boxConstraints) {
+                        final double maxWidth = boxConstraints.maxWidth;
+                        final double maxHeight = boxConstraints.maxHeight;
+                        return Hero(
+                          transitionOnUserGestures: true,
+                          flightShuttleBuilder:
+                              NetworkImgLayer.heroFlightShuttleBuilder,
+                          tag: widget.bangumiItem.id,
+                          child: NetworkImgLayer(
+                            src: widget.bangumiItem.images['large'] ?? '',
+                            width: maxWidth,
+                            height: maxHeight,
+                            fadeInDuration: const Duration(milliseconds: 0),
+                            fadeOutDuration: const Duration(milliseconds: 0),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
                 SizedBox(width: 16),
@@ -170,9 +173,7 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '放送开始:',
-                            ),
+                            Text('放送开始:'),
                             Text(
                               widget.bangumiItem.airDate == ''
                                   ? '2000-11-11' // Skeleton Loader 占位符
@@ -209,8 +210,9 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -218,22 +220,21 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                                     itemCount: 5,
                                     rating: widget.showRating
                                         ? widget.bangumiItem.ratingScore
-                                                .toDouble() /
-                                            2
+                                                  .toDouble() /
+                                              2
                                         : 0,
                                     itemBuilder: (context, index) => Icon(
                                       Icons.star_rounded,
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                     itemSize: 20.0,
                                   ),
                                 ],
                               ),
                             SizedBox(height: 8),
-                            Text(
-                              'Bangumi Ranked:',
-                            ),
+                            Text('Bangumi Ranked:'),
                             Text(
                               widget.showRating
                                   ? '#${widget.bangumiItem.rank}'
@@ -246,12 +247,21 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                             ),
                           ],
                         ),
-                        SizedBox(
-                          width: 120,
-                          height: 40,
-                          child: CollectButton.extend(
-                            bangumiItem: widget.bangumiItem,
-                          ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.primaryAction != null) ...[
+                              widget.primaryAction!,
+                              const SizedBox(height: 8),
+                            ],
+                            SizedBox(
+                              width: 120,
+                              height: 40,
+                              child: CollectButton.extend(
+                                bangumiItem: widget.bangumiItem,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

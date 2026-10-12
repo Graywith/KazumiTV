@@ -13,14 +13,9 @@ import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/platform/desktop_window_config.dart';
 import 'package:kazumi/bean/appbar/drag_to_move_bar.dart' as dtb;
 import 'package:kazumi/utils/device.dart';
-import 'package:kazumi/bean/tv/tv_support.dart';
-import 'package:kazumi/pages/history/continue_watching_section.dart';
 
 class PopularPage extends StatefulWidget {
-  const PopularPage({
-    super.key,
-    required this.controller,
-  });
+  const PopularPage({super.key, required this.controller});
 
   final PopularController controller;
 
@@ -56,8 +51,9 @@ class _PopularPageState extends State<PopularPage> {
     if (scrollController.position.pixels >=
             scrollController.position.maxScrollExtent - 200 &&
         !popularController.isLoadingMore) {
-      KazumiLogger()
-          .i('PopularPageController: Fetching next recommendation batch');
+      KazumiLogger().i(
+        'PopularPageController: Fetching next recommendation batch',
+      );
       if (popularController.currentTag != '') {
         popularController.queryBangumiByTag();
       } else {
@@ -73,8 +69,6 @@ class _PopularPageState extends State<PopularPage> {
         controller: scrollController,
         slivers: [
           buildSliverAppBar(),
-          if (isTv)
-            const SliverToBoxAdapter(child: ContinueWatchingSection()),
           SliverToBoxAdapter(
             child: Observer(
               builder: (_) => AnimatedOpacity(
@@ -87,9 +81,14 @@ class _PopularPageState extends State<PopularPage> {
             ),
           ),
           SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                  StyleString.cardSpace, 0, StyleString.cardSpace, 0),
-              sliver: Observer(builder: (_) {
+            padding: const EdgeInsets.fromLTRB(
+              StyleString.cardSpace,
+              0,
+              StyleString.cardSpace,
+              0,
+            ),
+            sliver: Observer(
+              builder: (_) {
                 if (popularController.isTimeOut) {
                   return SliverToBoxAdapter(
                     child: SizedBox(
@@ -116,12 +115,17 @@ class _PopularPageState extends State<PopularPage> {
                       ? popularController.trendList
                       : popularController.bangumiList,
                 );
-              })),
+              },
+            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => scrollController.animateTo(0,
-            duration: const Duration(milliseconds: 350), curve: Curves.easeOut),
+        onPressed: () => scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOut,
+        ),
         child: const Icon(Icons.arrow_upward),
       ),
     );
@@ -147,16 +151,13 @@ class _PopularPageState extends State<PopularPage> {
           crossAxisCount: crossCount,
           mainAxisExtent:
               MediaQuery.of(context).size.width / crossCount / 0.65 +
-                  MediaQuery.textScalerOf(context).scale(32.0),
+              MediaQuery.textScalerOf(context).scale(32.0),
         ),
-        delegate: SliverChildBuilderDelegate(
-          (BuildContext context, int index) {
-            return bangumiList.isNotEmpty
-                ? BangumiCardV(bangumiItem: bangumiList[index])
-                : null;
-          },
-          childCount: bangumiList.isNotEmpty ? bangumiList.length : 10,
-        ),
+        delegate: SliverChildBuilderDelegate((BuildContext context, int index) {
+          return bangumiList.isNotEmpty
+              ? BangumiCardV(bangumiItem: bangumiList[index])
+              : null;
+        }, childCount: bangumiList.isNotEmpty ? bangumiList.length : 10),
       ),
     );
   }
@@ -178,7 +179,8 @@ class _PopularPageState extends State<PopularPage> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final double maxExtent = 120 - MediaQuery.of(context).padding.top;
-              final t = (1 -
+              final t =
+                  (1 -
                   ((constraints.maxHeight - kToolbarHeight) /
                           (maxExtent - kToolbarHeight))
                       .clamp(0.0, 1.0));
@@ -189,7 +191,11 @@ class _PopularPageState extends State<PopularPage> {
                 alignment: Alignment.centerLeft,
                 child: Padding(
                   padding: const EdgeInsets.only(
-                      left: 16, top: 8, bottom: 8, right: 60),
+                    left: 16,
+                    top: 8,
+                    bottom: 8,
+                    right: 60,
+                  ),
                   child: SizedBox(
                     height: 44,
                     child: Observer(
@@ -215,15 +221,21 @@ class _PopularPageState extends State<PopularPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  isTrend ? '热门番组' : popularController.currentTag,
-                                  style: theme.textTheme.headlineMedium!.copyWith(
-                                    fontWeight: fontWeight,
-                                    fontSize: fontSize,
-                                  ),
+                                  isTrend
+                                      ? '热门番组'
+                                      : popularController.currentTag,
+                                  style: theme.textTheme.headlineMedium!
+                                      .copyWith(
+                                        fontWeight: fontWeight,
+                                        fontSize: fontSize,
+                                      ),
                                 ),
                                 const SizedBox(width: 4),
-                                Icon(Icons.keyboard_arrow_down,
-                                    size: fontSize, color: theme.iconTheme.color),
+                                Icon(
+                                  Icons.keyboard_arrow_down,
+                                  size: fontSize,
+                                  color: theme.iconTheme.color,
+                                ),
                               ],
                             ),
                           ),
@@ -264,8 +276,11 @@ class _PopularPageState extends State<PopularPage> {
 
   Future<void> _selectTag(String selected) async {
     if (!mounted || selected == popularController.currentTag) return;
-    scrollController.animateTo(0,
-        duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
     popularController.setCurrentTag(selected);
     if (selected.isEmpty) {
       popularController.clearBangumiList();

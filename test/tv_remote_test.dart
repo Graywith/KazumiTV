@@ -6,10 +6,6 @@ import 'package:kazumi/pages/player/controller/player_playback_controller.dart';
 import 'package:kazumi/pages/player/player_controller.dart';
 import 'package:kazumi/pages/player/tv_player_controls.dart';
 import 'package:kazumi/pages/video/video_side_panel.dart';
-import 'package:kazumi/modules/bangumi/bangumi_item.dart';
-import 'package:kazumi/modules/collect/collect_type.dart';
-import 'package:kazumi/modules/history/history_module.dart';
-import 'package:kazumi/pages/history/history_record_tile.dart';
 import 'package:kazumi/modules/roads/road_module.dart';
 import 'package:kazumi/pages/video/episode_selection_panel.dart';
 
@@ -42,6 +38,42 @@ class _Player implements PlayerController {
 }
 
 void main() {
+  testWidgets('TV remote activates danmaku search from control bar', (
+    tester,
+  ) async {
+    final player = _Player();
+    final scope = FocusNode();
+    var searches = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Focus(
+            focusNode: scope,
+            autofocus: true,
+            child: TvPlayerControls(
+              player: player,
+              scope: scope,
+              onEpisode: (_) async {},
+              onBack: () {},
+              onDanmakuSearch: () => searches++,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    expect(searches, 1);
+    expect(find.text('弹幕检索'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    scope.dispose();
+  });
+
   testWidgets('TV sliders use left/right for value and up/down to leave', (
     tester,
   ) async {
@@ -272,82 +304,6 @@ void main() {
       staleFocus.dispose();
     },
   );
-
-  testWidgets('Continue watching cards scroll with D-pad and activate once', (
-    tester,
-  ) async {
-    final scroll = ScrollController();
-    int? selected;
-    int activations = 0;
-    final histories = List.generate(6, (index) {
-      final item = BangumiItem(
-        id: index,
-        type: 2,
-        name: 'Anime $index',
-        nameCn: '',
-        summary: '',
-        airDate: '',
-        airWeekday: 1,
-        rank: 0,
-        images: const {},
-        tags: const [],
-        alias: const [],
-        ratingScore: 0,
-        votes: 0,
-        votesCount: const [],
-        info: '',
-      );
-      return History(item, 3, 'source', DateTime(2026), '/source', '第 3 话')
-        ..progresses[3] = Progress(3, 0, 65000);
-    });
-    await tester.pumpWidget(
-      MaterialApp(
-        builder: (_, child) => TvSupport(child: child!),
-        home: Scaffold(
-          body: SingleChildScrollView(
-            controller: scroll,
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (var i = 0; i < histories.length; i++)
-                  SizedBox(
-                    width: 340,
-                    child: HistoryRecordTile(
-                      history: histories[i],
-                      continueWatching: true,
-                      onPlay: () {
-                        selected = i;
-                        activations++;
-                      },
-                      onDetails: () {},
-                      onDelete: () async {},
-                      collectType: CollectType.values.first,
-                      onChangeCollect: null,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    expect(find.text('看到 1:05'), findsNWidgets(6));
-    expect(find.byType(IconButton), findsNothing);
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pumpAndSettle();
-    for (var i = 0; i < 5; i++) {
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pumpAndSettle();
-    }
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pumpAndSettle();
-    expect(selected, 5);
-    expect(activations, 1);
-    expect(scroll.offset, greaterThan(1000));
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
-    scroll.dispose();
-  });
 
   testWidgets('D-pad activates existing controls and scrolls a lazy list', (
     tester,

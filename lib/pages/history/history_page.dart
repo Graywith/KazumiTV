@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/tv/tv_support.dart';
+import 'package:kazumi/pages/my/my_controller.dart';
+import 'package:kazumi/pages/my/my_space_view.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
@@ -24,6 +27,7 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
+  MyController? _stats;
   bool _editing = false;
   bool _clearing = false;
   final Set<String> _deleting = {};
@@ -32,6 +36,16 @@ class _HistoryPageState extends State<HistoryPage> {
   void initState() {
     super.initState();
     widget.controller.init();
+    if (isTv) {
+      _stats = inject<MyController>();
+      _stats!.attach();
+    }
+  }
+
+  @override
+  void dispose() {
+    _stats?.detach();
+    super.dispose();
   }
 
   Future<void> _deleteHistory(History history) async {
@@ -59,7 +73,8 @@ class _HistoryPageState extends State<HistoryPage> {
         icon: const Icon(Icons.delete_sweep_outlined),
         title: const Text('清空历史记录？'),
         content: Text(
-            '将删除全部 ${widget.controller.histories.length} 条观看记录，包括在线和缓存记录。此操作无法撤销。'),
+          '将删除全部 ${widget.controller.histories.length} 条观看记录，包括在线和缓存记录。此操作无法撤销。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -67,8 +82,9 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-                foregroundColor: Theme.of(context).colorScheme.onError),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('清空全部'),
           ),
@@ -91,68 +107,78 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (context) {
-      final entries = widget.controller.histories.toList();
-      return PopScope(
-        canPop: !_editing,
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && _editing) {
-            setState(() => _editing = false);
-          }
-        },
-        child: Scaffold(
-          appBar: SysAppBar(
-            title: Text('历史记录',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            actions: [
-              if (entries.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _editing
-                      ? FilledButton.tonal(
-                          onPressed: _clearing
-                              ? null
-                              : () => setState(() => _editing = false),
-                          child: const Text('完成'),
-                        )
-                      : IconButton.filledTonal(
-                          tooltip: '管理历史记录',
-                          onPressed: () => setState(() => _editing = true),
-                          icon: const Icon(Icons.edit_outlined),
-                        ),
+    return Observer(
+      builder: (context) {
+        final entries = widget.controller.histories.toList();
+        return PopScope(
+          canPop: !_editing,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop && _editing) {
+              setState(() => _editing = false);
+            }
+          },
+          child: Scaffold(
+            appBar: SysAppBar(
+              title: Text(
+                '历史记录',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
-                if (_editing)
-                  IconButton(
-                    tooltip: '清空全部历史记录',
-                    onPressed: _clearing || _deleting.isNotEmpty
-                        ? null
-                        : _clearHistory,
-                    icon: const Icon(Icons.delete_sweep_outlined),
+              ),
+              actions: [
+                if (entries.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _editing
+                        ? FilledButton.tonal(
+                            onPressed: _clearing
+                                ? null
+                                : () => setState(() => _editing = false),
+                            child: const Text('完成'),
+                          )
+                        : IconButton.filledTonal(
+                            tooltip: '管理历史记录',
+                            onPressed: () => setState(() => _editing = true),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
                   ),
+                  if (_editing)
+                    IconButton(
+                      tooltip: '清空全部历史记录',
+                      onPressed: _clearing || _deleting.isNotEmpty
+                          ? null
+                          : _clearHistory,
+                      icon: const Icon(Icons.delete_sweep_outlined),
+                    ),
+                ],
               ],
-            ],
-          ),
-          body: SafeArea(
-            top: false,
-            bottom: false,
-            child: HistoryListView(
-              entries: entries,
-              editing: _editing,
-              itemBuilder: (history, borderRadius) => HistoryCard(
-                history: history,
-                borderRadius: borderRadius,
+            ),
+            body: SafeArea(
+              top: false,
+              bottom: false,
+              child: HistoryListView(
+                header: _stats == null
+                    ? null
+                    : WatchStatsPanel(
+                        bangumiCount: _stats!.watchStats.watchedBangumiCount,
+                        episodeCount: _stats!.watchStats.watchedEpisodeCount,
+                        compact: true,
+                      ),
+                entries: entries,
                 editing: _editing,
-                busy: _clearing || _deleting.contains(history.key),
-                onDelete: () => _deleteHistory(history),
+                itemBuilder: (history, borderRadius) => HistoryCard(
+                  history: history,
+                  borderRadius: borderRadius,
+                  editing: _editing,
+                  busy: _clearing || _deleting.contains(history.key),
+                  onDelete: () => _deleteHistory(history),
+                ),
               ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
 
@@ -164,7 +190,6 @@ class HistoryCard extends StatefulWidget {
     required this.editing,
     required this.busy,
     required this.borderRadius,
-    this.continueWatching = false,
   });
 
   final History history;
@@ -172,7 +197,6 @@ class HistoryCard extends StatefulWidget {
   final bool busy;
   final Future<void> Function() onDelete;
   final BorderRadius borderRadius;
-  final bool continueWatching;
 
   @override
   State<HistoryCard> createState() => _HistoryCardState();
@@ -198,7 +222,8 @@ class _HistoryCardState extends State<HistoryCard> with KazumiDialogOwner {
       switch (result) {
         case HistoryPlaybackReady(:final args):
           task.withContext(
-              (context) => context.pushNamed('/video/', arguments: args));
+            (context) => context.pushNamed('/video/', arguments: args),
+          );
         case HistoryPlaybackUnavailable(:final reason):
           KazumiDialog.showToast(message: reason);
       }
@@ -209,8 +234,10 @@ class _HistoryCardState extends State<HistoryCard> with KazumiDialogOwner {
     if (_updatingCollect) return;
     setState(() => _updatingCollect = true);
     try {
-      await _collectController.addCollect(widget.history.bangumiItem,
-          type: type.value);
+      await _collectController.addCollect(
+        widget.history.bangumiItem,
+        type: type.value,
+      );
     } catch (_) {
       KazumiDialog.showToast(message: '修改收藏状态失败，请稍后重试');
     } finally {
@@ -220,23 +247,27 @@ class _HistoryCardState extends State<HistoryCard> with KazumiDialogOwner {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (context) {
-      // getCollectType reads storage, so track the observable list explicitly.
-      _collectController.collectibles.length;
-      return HistoryRecordTile(
-        history: widget.history,
-        borderRadius: widget.borderRadius,
-        editing: widget.editing,
-        busy: widget.busy,
-        continueWatching: widget.continueWatching,
-        onPlay: _play,
-        onDelete: widget.onDelete,
-        onDetails: () =>
-            context.pushNamed('/info/', arguments: widget.history.bangumiItem),
-        collectType: CollectType.fromValue(
-            _collectController.getCollectType(widget.history.bangumiItem)),
-        onChangeCollect: _updatingCollect ? null : _changeCollect,
-      );
-    });
+    return Observer(
+      builder: (context) {
+        // getCollectType reads storage, so track the observable list explicitly.
+        _collectController.collectibles.length;
+        return HistoryRecordTile(
+          history: widget.history,
+          borderRadius: widget.borderRadius,
+          editing: widget.editing,
+          busy: widget.busy,
+          onPlay: _play,
+          onDelete: widget.onDelete,
+          onDetails: () => context.pushNamed(
+            '/info/',
+            arguments: widget.history.bangumiItem,
+          ),
+          collectType: CollectType.fromValue(
+            _collectController.getCollectType(widget.history.bangumiItem),
+          ),
+          onChangeCollect: _updatingCollect ? null : _changeCollect,
+        );
+      },
+    );
   }
 }

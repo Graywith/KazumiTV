@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
 
 import 'package:kazumi/bean/settings/settings_detail_scaffold.dart';
@@ -12,12 +13,31 @@ class AboutPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SettingsDetailScaffold(
-        title: const Text('关于'),
-        body: AboutContent(
-          children: [
-            _ProjectHeader(onCheckUpdate: onCheckUpdate),
-            const SizedBox(height: 24),
-            LayoutBuilder(builder: (context, constraints) {
+    title: const Text('关于'),
+    body: AboutContent(
+      children: [
+        _ProjectHeader(onCheckUpdate: onCheckUpdate),
+        const SizedBox(height: 24),
+        if (isTv)
+          ContentSection.group(
+            title: '开源信息',
+            children: const [
+              ListTile(title: Text('基于 Kazumi · GPL-3.0')),
+              AboutLinkTile.route(
+                icon: Icons.favorite_outline_rounded,
+                title: '致谢',
+                route: '/settings/about/credits',
+              ),
+              AboutLinkTile.route(
+                icon: Icons.description_outlined,
+                title: '第三方许可证',
+                route: '/settings/about/license',
+              ),
+            ],
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
               final sections = [
                 ContentSection.group(
                   title: '项目',
@@ -86,13 +106,14 @@ class AboutPage extends StatelessWidget {
                 children: [
                   sections[0],
                   const SizedBox(height: 24),
-                  sections[1]
+                  sections[1],
                 ],
               );
-            }),
-          ],
-        ),
-      );
+            },
+          ),
+      ],
+    ),
+  );
 }
 
 class _ProjectHeader extends StatelessWidget {
@@ -112,7 +133,7 @@ class _ProjectHeader extends StatelessWidget {
           Semantics(
             header: true,
             child: Text(
-              'Kazumi',
+              isTv ? 'Kazumi TV' : 'Kazumi',
               style: theme.textTheme.displayMedium?.copyWith(
                 color: colors.primary,
                 fontWeight: FontWeight.w600,
@@ -127,10 +148,7 @@ class _ProjectHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            '基于自定义规则的开源番剧应用',
-            style: theme.textTheme.bodyLarge,
-          ),
+          Text('基于自定义规则的开源番剧应用', style: theme.textTheme.bodyLarge),
           const SizedBox(height: 20),
           Wrap(
             spacing: 8,
@@ -138,14 +156,15 @@ class _ProjectHeader extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               CheckUpdateButton(onCheckUpdate: onCheckUpdate),
-              TextButton(
-                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-                onPressed: () => openAboutLink(
-                  context,
-                  '${ApiEndpoints.sourceUrl}/releases',
+              if (!isTv)
+                TextButton(
+                  style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                  onPressed: () => openAboutLink(
+                    context,
+                    '${ApiEndpoints.sourceUrl}/releases',
+                  ),
+                  child: const Text('更新日志'),
                 ),
-                child: const Text('更新日志'),
-              ),
             ],
           ),
         ],

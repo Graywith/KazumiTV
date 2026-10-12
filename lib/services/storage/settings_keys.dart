@@ -255,7 +255,7 @@ class SettingsKeys {
   );
   static const enableGitProxy = SettingKey<bool>(
     _SettingBoxKey.enableGitProxy,
-    true,
+    !bool.fromEnvironment('KAZUMI_TV'),
     group: SettingGroup.proxy,
   );
   static const tvUpdateServer = SettingKey<String>(
@@ -672,7 +672,7 @@ class SettingsKeys {
   static List<SettingKey<Object?>> byGroup(SettingGroup group) {
     return [
       for (final key in all)
-        if (key.group == group) key
+        if (key.group == group) key,
     ];
   }
 

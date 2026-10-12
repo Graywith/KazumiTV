@@ -1,3 +1,6 @@
+import 'package:flutter/services.dart';
+import 'package:kazumi/pages/video/tv_exit_confirmation.dart';
+import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/tv/tv_support.dart';
 import 'dart:async';
 
@@ -53,7 +56,12 @@ class VideoPage extends StatefulWidget {
 }
 
 class _VideoPageState extends State<VideoPage>
-    with SingleTickerProviderStateMixin, WindowListener {
+    with
+        SingleTickerProviderStateMixin,
+        WindowListener,
+        WidgetsBindingObserver {
+  final _exitConfirmation = TvExitConfirmation();
+  bool _handlingLocalBack = false;
   PlayerController get playerController => widget.playerController;
   VideoPageController get videoPageController => widget.videoPageController;
   bool _didInitializePlayback = false;
@@ -64,8 +72,9 @@ class _VideoPageState extends State<VideoPage>
   bool showDebugLog = false;
   List<String> webviewLogLines = [];
   StreamSubscription<String>? _logSubscription;
-  final FocusNode keyboardFocus =
-      FocusNode(debugLabel: 'Video player shortcut scope');
+  final FocusNode keyboardFocus = FocusNode(
+    debugLabel: 'Video player shortcut scope',
+  );
 
   final _episodePanelKey = GlobalKey<EpisodeSelectionPanelState>();
   final _sidePanelKey = GlobalKey<VideoSidePanelState>();
@@ -82,14 +91,19 @@ class _VideoPageState extends State<VideoPage>
   @override
   void initState() {
     super.initState();
+    if (isTv) {
+      WidgetsBinding.instance.addObserver(this);
+      FocusManager.instance.addEarlyKeyEventHandler(_cancelExitOnInput);
+    }
     videoPageController.applyPlaybackArgs(widget.args);
     windowManager.addListener(this);
 
     tabController = TabController(length: 2, vsync: this);
 
     playResume = GStorage.getSetting(SettingsKeys.playResume);
-    disableAnimations =
-        GStorage.getSetting(SettingsKeys.playerDisableAnimations);
+    disableAnimations = GStorage.getSetting(
+      SettingsKeys.playerDisableAnimations,
+    );
     _pipModeListener = mobx.reaction<bool>(
       (_) => videoPageController.isPip,
       _syncDesktopPipHistory,
@@ -105,8 +119,11 @@ class _VideoPageState extends State<VideoPage>
     _didInitializePlayback = true;
     videoPageController.fullscreen.attach(ModalRoute.of(context)!);
     if (isDesktop()) {
-      unawaited(videoPageController.fullscreen
-          .initializeDesktop(windowManager.isFullScreen));
+      unawaited(
+        videoPageController.fullscreen.initializeDesktop(
+          windowManager.isFullScreen,
+        ),
+      );
     }
     _initializePlayback();
   }
@@ -118,8 +135,9 @@ class _VideoPageState extends State<VideoPage>
       _initOnlineMode();
     }
 
-    _syncChatSubscription =
-        playerController.syncplay.chatStream.listen((event) {
+    _syncChatSubscription = playerController.syncplay.chatStream.listen((
+      event,
+    ) {
       final localUsername =
           playerController.syncplay.syncplayController?.username ?? '';
       final String displayText = '${event.username}：${event.message}';
@@ -165,8 +183,9 @@ class _VideoPageState extends State<VideoPage>
     videoPageController.historyOffset = 0;
 
     var progress = historyController.lastWatching(
-        videoPageController.bangumiItem,
-        videoPageController.currentPlugin.name);
+      videoPageController.bangumiItem,
+      videoPageController.currentPlugin.name,
+    );
     if (progress != null) {
       if (videoPageController.roadList.length > progress.road) {
         if (videoPageController.roadList[progress.road].data.length >=
@@ -198,9 +217,11 @@ class _VideoPageState extends State<VideoPage>
       if (!mounted) {
         return;
       }
-      changeEpisode(videoPageController.selectedEpisode.episode,
-          currentRoad: videoPageController.selectedEpisode.road,
-          offset: videoPageController.historyOffset);
+      changeEpisode(
+        videoPageController.selectedEpisode.episode,
+        currentRoad: videoPageController.selectedEpisode.road,
+        offset: videoPageController.historyOffset,
+      );
     });
   }
 
@@ -224,6 +245,10 @@ class _VideoPageState extends State<VideoPage>
       } catch (_) {}
     }
     unawaited(videoPageController.fullscreen.close());
+    if (isTv) {
+      WidgetsBinding.instance.removeObserver(this);
+      FocusManager.instance.removeEarlyKeyEventHandler(_cancelExitOnInput);
+    }
     keyboardFocus.dispose();
     tabController.dispose();
     TimedShutdownService().cancel();
@@ -246,8 +271,11 @@ class _VideoPageState extends State<VideoPage>
     });
   }
 
-  Future<void> changeEpisode(int episode,
-      {int currentRoad = 0, int offset = 0}) async {
+  Future<void> changeEpisode(
+    int episode, {
+    int currentRoad = 0,
+    int offset = 0,
+  }) async {
     if (!mounted || _isExiting) {
       return;
     }
@@ -255,15 +283,18 @@ class _VideoPageState extends State<VideoPage>
       webviewLogLines.clear();
       showDebugLog = false;
     });
-    await videoPageController.changeEpisode(episode,
-        currentRoad: currentRoad,
-        offset: offset,
-        playerController: playerController);
+    await videoPageController.changeEpisode(
+      episode,
+      currentRoad: currentRoad,
+      offset: offset,
+      playerController: playerController,
+    );
   }
 
-  void _revealCurrentEpisode() {
+  void _revealCurrentEpisode({bool focus = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _episodePanelKey.currentState?.revealCurrentEpisode();
+      if (mounted)
+        _episodePanelKey.currentState?.revealCurrentEpisode(focus: focus);
     });
   }
 
@@ -292,8 +323,38 @@ class _VideoPageState extends State<VideoPage>
     }
   }
 
+  KeyEventResult _cancelExitOnInput(KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey != LogicalKeyboardKey.goBack &&
+        event.logicalKey != LogicalKeyboardKey.escape)
+      _exitConfirmation.reset();
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _exitConfirmation.reset();
+  }
+
   void _onBackPressed() {
-    unawaited(Navigator.of(context).maybePop());
+    if (_handlingLocalBack) return;
+    if (!isTv) {
+      unawaited(Navigator.of(context).maybePop());
+      return;
+    }
+    if (ModalRoute.of(context)?.willHandlePopInternally == true) {
+      _exitConfirmation.reset();
+      _handlingLocalBack = true;
+      Navigator.of(context).pop();
+      _handlingLocalBack = false;
+      return;
+    }
+    final now = DateTime.now();
+    if (_exitConfirmation.confirm(now)) {
+      Navigator.of(context).pop();
+    } else {
+      KazumiDialog.showToast(context: context, message: '再按一次返回退出播放');
+    }
   }
 
   void pauseForTimedShutdown() {
@@ -305,45 +366,49 @@ class _VideoPageState extends State<VideoPage>
   @override
   Widget build(BuildContext context) {
     return PopScope(
+      canPop: !isTv,
       onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (!didPop && isTv) _onBackPressed();
         if (didPop) {
           setState(() => _isExiting = true);
           playerController.beginShutdown();
         }
       },
-      child: Observer(builder: (context) {
-        final bool isPip = videoPageController.isPip;
-        return VideoSystemBars(
-          fullscreen: videoPageController.isFullscreen,
-          isPip: isPip,
-          child: Scaffold(
-            body: VideoPageLayout(
-              fullscreen: videoPageController.isFullscreen,
-              isPip: isPip,
-              playerBuilder: (context, layout) => ColoredBox(
-                color: Colors.black,
-                child: Focus(
-                  focusNode: keyboardFocus,
-                  autofocus: true,
-                  // Cleanup resets loading while the route is still visible.
-                  child: _isExiting
-                      ? const SizedBox.expand()
-                      : Observer(builder: (_) => _buildPlayerBody(layout)),
+      child: Observer(
+        builder: (context) {
+          final bool isPip = videoPageController.isPip;
+          return VideoSystemBars(
+            fullscreen: videoPageController.isFullscreen,
+            isPip: isPip,
+            child: Scaffold(
+              body: VideoPageLayout(
+                fullscreen: videoPageController.isFullscreen,
+                isPip: isPip,
+                playerBuilder: (context, layout) => ColoredBox(
+                  color: Colors.black,
+                  child: Focus(
+                    focusNode: keyboardFocus,
+                    autofocus: true,
+                    // Cleanup resets loading while the route is still visible.
+                    child: _isExiting
+                        ? const SizedBox.expand()
+                        : Observer(builder: (_) => _buildPlayerBody(layout)),
+                  ),
+                ),
+                tabs: tabBody,
+                sidePanel: VideoSidePanel(
+                  key: _sidePanelKey,
+                  fullscreen: videoPageController.isFullscreen,
+                  disableAnimations: disableAnimations,
+                  onOpened: () => _revealCurrentEpisode(focus: true),
+                  onClosed: keyboardFocus.requestFocus,
+                  child: tabBody,
                 ),
               ),
-              tabs: tabBody,
-              sidePanel: VideoSidePanel(
-                key: _sidePanelKey,
-                fullscreen: videoPageController.isFullscreen,
-                disableAnimations: disableAnimations,
-                onOpened: _revealCurrentEpisode,
-                onClosed: keyboardFocus.requestFocus,
-                child: tabBody,
-              ),
             ),
-          ),
-        );
-      }),
+          );
+        },
+      ),
     );
   }
 
@@ -351,121 +416,133 @@ class _VideoPageState extends State<VideoPage>
     final bool playerLoading = playerController.playback.loading;
     return Stack(
       children: [
-        if (!isTv || playerLoading || videoPageController.loading ||
+        if (!isTv ||
+            playerLoading ||
+            videoPageController.loading ||
             videoPageController.errorMessage != null)
-        Positioned.fill(
-          child: Stack(
-            children: [
-              if (videoPageController.loading ||
-                  playerLoading ||
-                  videoPageController.errorMessage != null)
-                Container(
-                  color: Colors.black,
-                  child: Observer(builder: (context) {
-                    final errorMessage = videoPageController.errorMessage;
-                    if (errorMessage != null) {
-                      return MediaErrorWidget(
-                        title: '暂时无法播放',
-                        errMsg: errorMessage,
-                        icon: Icons.videocam_off_outlined,
-                      );
-                    }
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          LoadingIndicator(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .tertiaryContainer),
-                          const SizedBox(height: 10),
-                          Text(
-                            videoPageController.loading
-                                ? '视频资源解析中'
-                                : '视频资源解析成功, 播放器加载中',
-                            style: const TextStyle(color: Colors.white),
+          Positioned.fill(
+            child: Stack(
+              children: [
+                if (videoPageController.loading ||
+                    playerLoading ||
+                    videoPageController.errorMessage != null)
+                  Container(
+                    color: Colors.black,
+                    child: Observer(
+                      builder: (context) {
+                        final errorMessage = videoPageController.errorMessage;
+                        if (errorMessage != null) {
+                          return MediaErrorWidget(
+                            title: '暂时无法播放',
+                            errMsg: errorMessage,
+                            icon: Icons.videocam_off_outlined,
+                          );
+                        }
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              LoadingIndicator(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.tertiaryContainer,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                videoPageController.loading
+                                    ? '视频资源解析中'
+                                    : '视频资源解析成功, 播放器加载中',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  }),
-                ),
-              Visibility(
-                visible: (videoPageController.loading || playerLoading) &&
-                    showDebugLog,
-                child: Container(
-                  color: Colors.black,
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: webviewLogLines.length,
-                      itemBuilder: (context, index) {
-                        return Text(
-                          webviewLogLines[index],
-                          style: const TextStyle(
-                            color: Colors.white,
-                          ),
-                          textAlign: TextAlign.center,
                         );
                       },
                     ),
                   ),
-                ),
-              ),
-              Stack(
-                children: [
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: EmbeddedNativeControlArea(
-                      requireOffset: !videoPageController.isFullscreen,
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back,
-                                color: Colors.white),
-                            onPressed: _onBackPressed,
-                          ),
-                          const Expanded(
-                              child: dtb.DragToMoveArea(
-                                  child: SizedBox(height: 40))),
-                          IconButton(
-                            icon: const Icon(Icons.refresh_outlined,
-                                color: Colors.white),
-                            onPressed: () {
-                              changeEpisode(
-                                  videoPageController.selectedEpisode.episode,
-                                  currentRoad:
-                                      videoPageController.selectedEpisode.road);
-                            },
-                          ),
-                          if (layout.hasSidePanel)
-                            IconButton(
-                              onPressed: _toggleSidePanel,
-                              icon: const Icon(
-                                Icons.menu_open_rounded,
-                                color: Colors.white,
-                              ),
-                            ),
-                          IconButton(
-                            icon: Icon(
-                                showDebugLog
-                                    ? Icons.bug_report
-                                    : Icons.bug_report_outlined,
-                                color: Colors.white),
-                            onPressed: _toggleDebugConsole,
-                          ),
-                        ],
+                Visibility(
+                  visible:
+                      (videoPageController.loading || playerLoading) &&
+                      showDebugLog,
+                  child: Container(
+                    color: Colors.black,
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: webviewLogLines.length,
+                        itemBuilder: (context, index) {
+                          return Text(
+                            webviewLogLines[index],
+                            style: const TextStyle(color: Colors.white),
+                            textAlign: TextAlign.center,
+                          );
+                        },
                       ),
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+                Stack(
+                  children: [
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: EmbeddedNativeControlArea(
+                        requireOffset: !videoPageController.isFullscreen,
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: Colors.white,
+                              ),
+                              onPressed: _onBackPressed,
+                            ),
+                            const Expanded(
+                              child: dtb.DragToMoveArea(
+                                child: SizedBox(height: 40),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.refresh_outlined,
+                                color: Colors.white,
+                              ),
+                              onPressed: () {
+                                changeEpisode(
+                                  videoPageController.selectedEpisode.episode,
+                                  currentRoad:
+                                      videoPageController.selectedEpisode.road,
+                                );
+                              },
+                            ),
+                            if (layout.hasSidePanel)
+                              IconButton(
+                                onPressed: _toggleSidePanel,
+                                icon: const Icon(
+                                  Icons.menu_open_rounded,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            IconButton(
+                              icon: Icon(
+                                showDebugLog
+                                    ? Icons.bug_report
+                                    : Icons.bug_report_outlined,
+                                color: Colors.white,
+                              ),
+                              onPressed: _toggleDebugConsole,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
         Positioned.fill(
           child: playerLoading
               ? const SizedBox.shrink()
@@ -473,8 +550,9 @@ class _VideoPageState extends State<VideoPage>
                   fillsWindow: layout.fillsWindow,
                   playerController: playerController,
                   videoPageController: videoPageController,
-                  onToggleSidePanel:
-                      layout.hasSidePanel ? _toggleSidePanel : null,
+                  onToggleSidePanel: layout.hasSidePanel
+                      ? _toggleSidePanel
+                      : null,
                   changeEpisode: changeEpisode,
                   onBackPressed: _onBackPressed,
                   keyboardFocus: keyboardFocus,
@@ -488,58 +566,61 @@ class _VideoPageState extends State<VideoPage>
     );
   }
 
-  Widget get episodePanel => Observer(builder: (context) {
-        final downloads = <String, DownloadEpisode>{};
-        if (!videoPageController.isOfflineMode) {
-          for (final record in downloadController.records) {
-            if (record.bangumiId != videoPageController.bangumiItem.id ||
-                record.pluginName != videoPageController.currentPlugin.name) {
-              continue;
-            }
-            for (final episode in record.episodes.values) {
-              if (episode.episodePageUrl.isNotEmpty) {
-                downloads[episode.episodePageUrl] = episode;
-              } else if (episode.road >= 0 &&
-                  episode.road < videoPageController.roadList.length) {
-                // Older records have no URL; only match within their own road.
-                final urls = videoPageController.roadList[episode.road].data;
-                if (episode.episodeNumber > 0 &&
-                    episode.episodeNumber <= urls.length) {
-                  downloads[urls[episode.episodeNumber - 1]] = episode;
-                }
+  Widget get episodePanel => Observer(
+    builder: (context) {
+      final downloads = <String, DownloadEpisode>{};
+      if (!videoPageController.isOfflineMode) {
+        for (final record in downloadController.records) {
+          if (record.bangumiId != videoPageController.bangumiItem.id ||
+              record.pluginName != videoPageController.currentPlugin.name) {
+            continue;
+          }
+          for (final episode in record.episodes.values) {
+            if (episode.episodePageUrl.isNotEmpty) {
+              downloads[episode.episodePageUrl] = episode;
+            } else if (episode.road >= 0 &&
+                episode.road < videoPageController.roadList.length) {
+              // Older records have no URL; only match within their own road.
+              final urls = videoPageController.roadList[episode.road].data;
+              if (episode.episodeNumber > 0 &&
+                  episode.episodeNumber <= urls.length) {
+                downloads[urls[episode.episodeNumber - 1]] = episode;
               }
             }
           }
         }
-        return EpisodeSelectionPanel(
-          key: _episodePanelKey,
-          title: videoPageController.title,
-          roads: videoPageController.roadList,
-          selectedRoad: videoPageController.selectedEpisode.road,
-          selectedEpisode: videoPageController.selectedEpisode.episode,
-          downloads: downloads,
-          isOffline: videoPageController.isOfflineMode,
-          isPlaying: playerController.playback.playing &&
-              !playerController.playback.loading &&
-              !videoPageController.loading,
-          disableAnimations: disableAnimations,
-          onEpisodeSelected: (episode, road) {
-            if (episode == videoPageController.selectedEpisode.episode &&
-                road == videoPageController.selectedEpisode.road) {
-              return;
-            }
-            _closeSidePanel();
-            changeEpisode(episode, currentRoad: road);
-          },
-          onDownload: (road) => showAdaptiveBottomSheet<void>(
-            context: context,
-            builder: (context) => DownloadEpisodeSheet(
-              road: road,
-              videoPageController: videoPageController,
-            ),
+      }
+      return EpisodeSelectionPanel(
+        key: _episodePanelKey,
+        title: videoPageController.title,
+        roads: videoPageController.roadList,
+        selectedRoad: videoPageController.selectedEpisode.road,
+        selectedEpisode: videoPageController.selectedEpisode.episode,
+        downloads: downloads,
+        isOffline: videoPageController.isOfflineMode,
+        isPlaying:
+            playerController.playback.playing &&
+            !playerController.playback.loading &&
+            !videoPageController.loading,
+        disableAnimations: disableAnimations,
+        onEpisodeSelected: (episode, road) {
+          if (episode == videoPageController.selectedEpisode.episode &&
+              road == videoPageController.selectedEpisode.road) {
+            return;
+          }
+          _closeSidePanel();
+          changeEpisode(episode, currentRoad: road);
+        },
+        onDownload: (road) => showAdaptiveBottomSheet<void>(
+          context: context,
+          builder: (context) => DownloadEpisodeSheet(
+            road: road,
+            videoPageController: videoPageController,
           ),
-        );
-      });
+        ),
+      );
+    },
+  );
 
   Widget get tabBody {
     final colors = Theme.of(context).colorScheme;

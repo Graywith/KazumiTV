@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kazumi/pages/history/history_module.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/widget/error_widget.dart';
 import 'package:kazumi/bean/widget/image_preview.dart';
@@ -61,6 +62,7 @@ final tabModule = createModule(
             ..module(popularModule)
             ..module(timelineModule)
             ..module(collectModule)
+            ..module(historyModule)
             ..module(myModule);
         },
       );
@@ -94,10 +96,7 @@ final indexModule = createModule(
         '/error',
         child: (context, state) => Scaffold(
           appBar: AppBar(title: const Text('Kazumi')),
-          body: const GeneralErrorWidget(
-            title: '初始化失败',
-            errMsg: '请重新启动应用后再试。',
-          ),
+          body: const GeneralErrorWidget(title: '初始化失败', errMsg: '请重新启动应用后再试。'),
         ),
       )
       ..module(tabModule)

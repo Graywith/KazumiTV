@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:kazumi/pages/player/player_controller.dart';
@@ -13,6 +14,7 @@ class TvPlayerControls extends StatefulWidget {
     required this.onEpisode,
     required this.onBack,
     this.onEpisodes,
+    this.onDanmakuSearch,
     this.isBlocked,
   });
   final PlayerController player;
@@ -20,6 +22,7 @@ class TvPlayerControls extends StatefulWidget {
   final Future<void> Function(String direction) onEpisode;
   final VoidCallback onBack;
   final VoidCallback? onEpisodes;
+  final VoidCallback? onDanmakuSearch;
   final bool Function()? isBlocked;
 
   @override
@@ -31,6 +34,7 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
   final _playFocus = FocusNode(debugLabel: 'TV play/pause');
   final _nextFocus = FocusNode(debugLabel: 'TV next episode');
   final _episodesFocus = FocusNode(debugLabel: 'TV episode list');
+  final _danmakuFocus = FocusNode(debugLabel: 'TV danmaku search');
   final _progressFocus = FocusNode(debugLabel: 'TV progress');
   Timer? _timer;
   LocalHistoryEntry? _entry;
@@ -84,6 +88,7 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
     _previousFocus,
     _playFocus,
     _nextFocus,
+    if (widget.onDanmakuSearch != null) _danmakuFocus,
     if (widget.onEpisodes != null) _episodesFocus,
   ];
 
@@ -102,12 +107,20 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
       unawaited(widget.onEpisode('next'));
     } else if (_episodesFocus.hasFocus) {
       _openEpisodes();
+    } else if (_danmakuFocus.hasFocus) {
+      _hide();
+      widget.onDanmakuSearch?.call();
     } else if (!_progressFocus.hasFocus) {
       unawaited(widget.player.playOrPause());
     }
   }
 
   KeyEventResult _key(KeyEvent event) {
+    // Android sends a native Back event as well; let the route handle it once.
+    if (defaultTargetPlatform == TargetPlatform.android &&
+        event.logicalKey == LogicalKeyboardKey.goBack)
+      return KeyEventResult.ignored;
+
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
@@ -126,6 +139,11 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
           widget.onBack();
         }
       }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.contextMenu ||
+        key == LogicalKeyboardKey.settings) {
+      if (event is KeyDownEvent) _show();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaPlayPause) {
@@ -185,6 +203,7 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
     _playFocus.dispose();
     _nextFocus.dispose();
     _episodesFocus.dispose();
+    _danmakuFocus.dispose();
     _progressFocus.dispose();
     super.dispose();
   }
@@ -271,6 +290,18 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
                           icon: const Icon(Icons.skip_next),
                           label: const Text('下一集'),
                         ),
+                        if (widget.onDanmakuSearch != null) ...[
+                          const SizedBox(width: 24),
+                          TextButton.icon(
+                            focusNode: _danmakuFocus,
+                            onPressed: () {
+                              _hide();
+                              widget.onDanmakuSearch?.call();
+                            },
+                            icon: const Icon(Icons.search),
+                            label: const Text('弹幕检索'),
+                          ),
+                        ],
                         if (widget.onEpisodes != null) ...[
                           const SizedBox(width: 24),
                           TextButton.icon(

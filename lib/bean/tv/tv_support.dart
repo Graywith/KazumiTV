@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 const isTv = bool.fromEnvironment('KAZUMI_TV');
@@ -24,6 +25,11 @@ class _TvSupportState extends State<TvSupport> {
   }
 
   KeyEventResult _initialFocus(KeyEvent event) {
+    // Android sends a native Back event as well; let the route handle it once.
+    if (defaultTargetPlatform == TargetPlatform.android &&
+        event.logicalKey == LogicalKeyboardKey.goBack)
+      return KeyEventResult.ignored;
+
     if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
         (event.logicalKey == LogicalKeyboardKey.arrowUp ||
             event.logicalKey == LogicalKeyboardKey.arrowDown)) {
@@ -36,6 +42,30 @@ class _TvSupportState extends State<TvSupport> {
         }
         return true;
       });
+      if (!inSlider && focus?.context != null) {
+        final scroll = Scrollable.maybeOf(focus!.context!);
+        if (scroll != null && scroll.axisDirection == AxisDirection.down) {
+          final up = event.logicalKey == LogicalKeyboardKey.arrowUp;
+          final hasNext = focus.nearestScope!.traversalDescendants.any((node) {
+            if (node == focus ||
+                node is FocusScopeNode ||
+                node.context == null ||
+                !node.canRequestFocus ||
+                node.skipTraversal)
+              return false;
+            if (Scrollable.maybeOf(node.context!) != scroll) return false;
+            return up
+                ? node.rect.center.dy < focus.rect.center.dy - 1
+                : node.rect.center.dy > focus.rect.center.dy + 1;
+          });
+          final position = scroll.position;
+          final edge = up ? position.minScrollExtent : position.maxScrollExtent;
+          if (!hasNext && (position.pixels - edge).abs() > 1) {
+            position.jumpTo(edge);
+            return KeyEventResult.handled;
+          }
+        }
+      }
       if (inSlider) {
         final up = event.logicalKey == LogicalKeyboardKey.arrowUp;
         if (FocusTraversalGroup.maybeOf(focus!.context!)

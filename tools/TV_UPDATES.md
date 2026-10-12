@@ -6,7 +6,9 @@
 bash tools/build_tv.sh <版本> <构建号> [ABI]
 ```
 
-默认 ABI 为 `arm64-v8a`；电视包使用 `armeabi-v7a`。每次发布递增版本与构建号。APK 输出到 `build/app/outputs/flutter-apk/` 和 `build/tv-updates/`。
+默认仅构建 `armeabi-v7a`，用于 Sony 实机验证。每次发布递增版本与构建号。APK 输出到 `build/app/outputs/flutter-apk/` 和 `build/tv-updates/`。
+
+v7a 包同时复制到 iCloud 云盘的 `Downloads` 目录；目录不存在时保留本地 APK 并提示。
 
 ## 局域网更新
 

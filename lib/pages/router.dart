@@ -26,5 +26,6 @@ const MenuRoute menu = MenuRoute([
   MenuRouteItem(path: '/popular'),
   MenuRouteItem(path: '/timeline'),
   MenuRouteItem(path: '/collect'),
+  if (bool.fromEnvironment('KAZUMI_TV')) MenuRouteItem(path: '/history'),
   MenuRouteItem(path: '/my'),
 ]);

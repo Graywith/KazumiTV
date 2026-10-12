@@ -5,49 +5,23 @@ import 'package:kazumi/services/network/bangumi_acceleration.dart';
 import 'package:kazumi/services/network/image_acceleration.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/bean/tv/tv_support.dart';
-import 'package:kazumi/services/update/auto_updater.dart';
+import 'package:kazumi/bean/settings/tv_update_server_tile.dart';
 
 class NetworkMirrorSettings extends StatefulWidget {
-  const NetworkMirrorSettings({super.key, this.margin});
+  const NetworkMirrorSettings({
+    super.key,
+    this.margin,
+    this.showUpdateServer = true,
+  });
 
   final EdgeInsetsGeometry? margin;
+  final bool showUpdateServer;
 
   @override
   State<NetworkMirrorSettings> createState() => _NetworkMirrorSettingsState();
 }
 
 class _NetworkMirrorSettingsState extends State<NetworkMirrorSettings> {
-  Future<void> _editUpdateServer() async {
-    final saved = GStorage.getSetting(SettingsKeys.tvUpdateServer);
-    final input = TextEditingController(text: saved.isEmpty ? tvUpdateBase : saved);
-    final value = await showDialog<String>(context: context, builder: (dialogContext) => AlertDialog(
-      title: const Text('TV 更新服务器'),
-      content: TextField(
-        controller: input,
-        keyboardType: TextInputType.url,
-        decoration: const InputDecoration(hintText: 'http://192.168.5.21:18080'),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('取消')),
-        TextButton(onPressed: () {
-          final text = input.text.trim().replaceFirst(RegExp(r'/+$'), '');
-          final uri = Uri.tryParse(text);
-          if (uri == null || !['http', 'https'].contains(uri.scheme) ||
-              uri.host.isEmpty || uri.userInfo.isNotEmpty || uri.hasQuery ||
-              uri.hasFragment || uri.path.isNotEmpty) {
-            KazumiDialog.showToast(message: '请输入服务器地址，例如 http://192.168.5.21:18080');
-            return;
-          }
-          Navigator.pop(dialogContext, text);
-        }, child: const Text('保存')),
-      ],
-    ));
-    // Wait for the closing dialog to release its text controller.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    input.dispose();
-    if (value != null && mounted) await _save(SettingsKeys.tvUpdateServer, value);
-  }
-
   Future<void> _save<T>(SettingKey<T> key, T value) async {
     await GStorage.putSetting(key, value);
     if (mounted) setState(() {});
@@ -64,13 +38,7 @@ class _NetworkMirrorSettingsState extends State<NetworkMirrorSettings> {
       title: const Text('访问加速'),
       margin: widget.margin,
       tiles: [
-        if (isTv) SettingsTile(
-          leading: Icons.system_update_rounded,
-          title: const Text('TV 更新服务器'),
-          description: Text(GStorage.getSetting(SettingsKeys.tvUpdateServer).isEmpty
-              ? tvUpdateBase : GStorage.getSetting(SettingsKeys.tvUpdateServer)),
-          onPressed: (_) => _editUpdateServer(),
-        ),
+        if (isTv && widget.showUpdateServer) const TvUpdateServerTile(),
         SettingsTile(
           leading: Icons.travel_explore_rounded,
           title: const Text('番剧条目加速'),

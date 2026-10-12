@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -20,21 +21,19 @@ enum _CatalogSort { lastUpdate, name }
 enum _CatalogFilter { all, installed, updates }
 
 class PluginCatalogView extends StatefulWidget {
-  const PluginCatalogView({
-    super.key,
-    required this.controller,
-  }) : _scrollViewBuilder = null;
+  const PluginCatalogView({super.key, required this.controller})
+    : _scrollViewBuilder = null;
 
   const PluginCatalogView.onboarding({
     super.key,
     required this.controller,
     required Widget Function(BuildContext context, List<Widget> slivers)
-        builder,
+    builder,
   }) : _scrollViewBuilder = builder;
 
   final PluginsController controller;
   final Widget Function(BuildContext context, List<Widget> slivers)?
-      _scrollViewBuilder;
+  _scrollViewBuilder;
 
   bool get _onboarding => _scrollViewBuilder != null;
 
@@ -111,12 +110,17 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
   }
 
   Future<void> _install(
-      PluginHTTPItem item, PluginCatalogItemStatus status) async {
+    PluginHTTPItem item,
+    PluginCatalogItemStatus status,
+  ) async {
     if (!_installing.add(item.name)) return;
     setState(() {});
     try {
-      await updatePluginWithFeedback(_controller, item.name,
-          installing: status == PluginCatalogItemStatus.install);
+      await updatePluginWithFeedback(
+        _controller,
+        item.name,
+        installing: status == PluginCatalogItemStatus.install,
+      );
     } finally {
       if (mounted) setState(() => _installing.remove(item.name));
     }
@@ -140,41 +144,45 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
         items.sort((a, b) => b.lastUpdate.compareTo(a.lastUpdate));
       case _CatalogSort.name:
         items.sort(
-            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
     }
     return items;
   }
 
   Widget _sortButton() => KazumiMenuButton(
-        builder: (context, toggle) => TextButton.icon(
-          onPressed: toggle,
-          icon: const Icon(Icons.sort_rounded, size: 20),
-          label: Text(_sort == _CatalogSort.name ? '名称排序' : '最近更新'),
+    builder: (context, toggle) => TextButton.icon(
+      onPressed: toggle,
+      icon: const Icon(Icons.sort_rounded, size: 20),
+      label: Text(_sort == _CatalogSort.name ? '名称排序' : '最近更新'),
+    ),
+    menuChildren: [
+      for (final sort in _CatalogSort.values)
+        KazumiMenuItem(
+          selected: _sort == sort,
+          onPressed: () => setState(() => _sort = sort),
+          label: sort == _CatalogSort.name ? '按名称排序' : '按更新时间排序',
         ),
-        menuChildren: [
-          for (final sort in _CatalogSort.values)
-            KazumiMenuItem(
-              selected: _sort == sort,
-              onPressed: () => setState(() => _sort = sort),
-              label: sort == _CatalogSort.name ? '按名称排序' : '按更新时间排序',
-            ),
-        ],
-      );
+    ],
+  );
 
   Widget _header(int total, int installed, int updates) {
     final theme = Theme.of(context);
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (!widget._onboarding) ...[
-        const RulePageIntro(
-          title: '发现更多来源',
-          description: '浏览社区规则，为你的番剧搜索添加更多选择。',
-          icon: Icons.travel_explore_rounded,
-        ),
-        const SizedBox(height: 20),
-        TextField(
-          controller: _search,
-          onChanged: (_) => setState(() {}),
-          decoration: ruleInputDecoration(context,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!widget._onboarding) ...[
+          const RulePageIntro(
+            title: '发现更多来源',
+            description: '浏览社区规则，为你的番剧搜索添加更多选择。',
+            icon: Icons.travel_explore_rounded,
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _search,
+            onChanged: (_) => setState(() {}),
+            decoration: ruleInputDecoration(
+              context,
               hint: '搜索规则或作者',
               prefix: const Icon(Icons.search_rounded),
               suffix: _search.text.isEmpty
@@ -182,60 +190,73 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
                   : IconButton(
                       tooltip: '清除搜索',
                       onPressed: () => setState(_search.clear),
-                      icon: const Icon(Icons.close_rounded))),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            for (final entry in [
-              (_CatalogFilter.all, '全部 $total'),
-              (_CatalogFilter.installed, '已安装 $installed'),
-              (_CatalogFilter.updates, '可更新 $updates'),
-            ])
-              FilterChip(
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (final entry in [
+                (_CatalogFilter.all, '全部 $total'),
+                (_CatalogFilter.installed, '已安装 $installed'),
+                (_CatalogFilter.updates, '可更新 $updates'),
+              ])
+                FilterChip(
                   label: Text(entry.$2),
                   selected: _filter == entry.$1,
-                  onSelected: (_) => setState(() => _filter = entry.$1)),
+                  onSelected: (_) => setState(() => _filter = entry.$1),
+                ),
+            ],
+          ),
+        ],
+        Row(
+          children: [
+            if (widget._onboarding)
+              Expanded(
+                child: Text(
+                  '规则仓库 · 已安装 $installed',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            else ...[
+              _sortButton(),
+              const Spacer(),
+            ],
+            IconButton.filledTonal(
+              tooltip: '刷新规则列表',
+              onPressed: _loading ? null : _refresh,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
           ],
         ),
-      ],
-      Row(children: [
-        if (widget._onboarding)
-          Expanded(
-            child: Text('规则仓库 · 已安装 $installed',
-                style: theme.textTheme.titleSmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600)),
-          )
-        else ...[
-          _sortButton(),
-          const Spacer(),
-        ],
-        IconButton.filledTonal(
-            tooltip: '刷新规则列表',
-            onPressed: _loading ? null : _refresh,
-            icon: const Icon(Icons.refresh_rounded)),
-      ]),
-      if (_loading && total > 0)
-        const Padding(
+        if (_loading && total > 0)
+          const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
-            child: LinearProgressIndicator()),
-      if (_loadFailed && total > 0)
-        Padding(
+            child: LinearProgressIndicator(),
+          ),
+        if (_loadFailed && total > 0)
+          Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text('刷新失败，正在显示上次获取的规则。', style: theme.textTheme.bodySmall)),
-      const SizedBox(height: 8),
-    ]);
+            child: Text('刷新失败，正在显示上次获取的规则。', style: theme.textTheme.bodySmall),
+          ),
+        const SizedBox(height: 8),
+      ],
+    );
   }
 
   Widget _emptyBody() {
     if (_loading) {
       return const Padding(
-          padding: EdgeInsets.all(48),
-          child: Center(child: LoadingIndicator()));
+        padding: EdgeInsets.all(48),
+        child: Center(child: LoadingIndicator()),
+      );
     }
     if (_loadFailed && _controller.pluginHTTPList.isEmpty) {
       final enabled = GStorage.getSetting(SettingsKeys.enableGitProxy);
@@ -263,72 +284,93 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
   }
 
   @override
-  Widget build(BuildContext context) => Observer(builder: (context) {
-        final colors = Theme.of(context).colorScheme;
-        final catalog = _controller.pluginHTTPList.toList();
-        final installed = catalog
-            .where((p) =>
-                _controller.pluginStatus(p) != PluginCatalogItemStatus.install)
-            .length;
-        final updates = catalog
-            .where((p) =>
-                _controller.pluginStatus(p) == PluginCatalogItemStatus.update)
-            .length;
-        final items = _visibleItems();
-        final slivers = <Widget>[
-          SliverPadding(
-            padding: widget._onboarding
-                ? EdgeInsets.zero
-                : const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            sliver: SliverMainAxisGroup(slivers: [
+  Widget build(BuildContext context) => Observer(
+    builder: (context) {
+      final colors = Theme.of(context).colorScheme;
+      final catalog = _controller.pluginHTTPList.toList();
+      final installed = catalog
+          .where(
+            (p) =>
+                _controller.pluginStatus(p) != PluginCatalogItemStatus.install,
+          )
+          .length;
+      final updates = catalog
+          .where(
+            (p) =>
+                _controller.pluginStatus(p) == PluginCatalogItemStatus.update,
+          )
+          .length;
+      final items = _visibleItems();
+      Widget buildRule(BuildContext context, int index) {
+        final item = items[index];
+        final status = _controller.pluginStatus(item);
+        final busy = _installing.contains(item.name);
+        return RuleCard(
+          key: ValueKey(item.name),
+          title: item.name,
+          installed: status == PluginCatalogItemStatus.installed,
+          subtitle: item.author.isEmpty ? null : '作者 · ${item.author}',
+          tags: [
+            RuleTag(
+              label: item.version,
+              background: colors.surfaceContainerHighest,
+              foreground: colors.onSurfaceVariant,
+            ),
+            if (item.antiCrawlerEnabled)
+              RuleTag(
+                label: '含验证支持',
+                background: colors.tertiaryContainer,
+                foreground: colors.onTertiaryContainer,
+              ),
+          ],
+          caption: item.lastUpdate > 0
+              ? '更新于 ${DateTime.fromMillisecondsSinceEpoch(item.lastUpdate).toString().split(' ').first}'
+              : null,
+          trailing: _CatalogRuleAction(
+            status: status,
+            busy: busy,
+            onPressed: () => _install(item, status),
+          ),
+        );
+      }
+
+      final slivers = <Widget>[
+        SliverPadding(
+          padding: widget._onboarding
+              ? EdgeInsets.zero
+              : const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          sliver: SliverMainAxisGroup(
+            slivers: [
               SliverToBoxAdapter(
-                  child: _header(catalog.length, installed, updates)),
+                child: _header(catalog.length, installed, updates),
+              ),
               if (items.isEmpty)
                 SliverToBoxAdapter(child: _emptyBody())
+              else if (isTv)
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < items.length; i++)
+                        buildRule(context, i),
+                    ],
+                  ),
+                )
               else
                 SliverList.builder(
                   itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    final status = _controller.pluginStatus(item);
-                    final busy = _installing.contains(item.name);
-                    return RuleCard(
-                      key: ValueKey(item.name),
-                      title: item.name,
-                      installed: status == PluginCatalogItemStatus.installed,
-                      subtitle:
-                          item.author.isEmpty ? null : '作者 · ${item.author}',
-                      tags: [
-                        RuleTag(
-                            label: item.version,
-                            background: colors.surfaceContainerHighest,
-                            foreground: colors.onSurfaceVariant),
-                        if (item.antiCrawlerEnabled)
-                          RuleTag(
-                              label: '含验证支持',
-                              background: colors.tertiaryContainer,
-                              foreground: colors.onTertiaryContainer),
-                      ],
-                      caption: item.lastUpdate > 0
-                          ? '更新于 ${DateTime.fromMillisecondsSinceEpoch(item.lastUpdate).toString().split(' ').first}'
-                          : null,
-                      trailing: _CatalogRuleAction(
-                        status: status,
-                        busy: busy,
-                        onPressed: () => _install(item, status),
-                      ),
-                    );
-                  },
+                  itemBuilder: buildRule,
                 ),
-            ]),
+            ],
           ),
-        ];
-        return widget._scrollViewBuilder?.call(context, slivers) ??
-            CustomScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              slivers: slivers,
-            );
-      });
+        ),
+      ];
+      return widget._scrollViewBuilder?.call(context, slivers) ??
+          CustomScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: slivers,
+          );
+    },
+  );
 }
 
 class _CatalogRuleAction extends StatelessWidget {
@@ -348,15 +390,19 @@ class _CatalogRuleAction extends StatelessWidget {
     if (!busy && status == PluginCatalogItemStatus.installed) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.check_rounded, size: 18, color: colors.onSurfaceVariant),
-          const SizedBox(width: 6),
-          Text('已安装',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelLarge
-                  ?.copyWith(color: colors.onSurfaceVariant)),
-        ]),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_rounded, size: 18, color: colors.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Text(
+              '已安装',
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: colors.onSurfaceVariant),
+            ),
+          ],
+        ),
       );
     }
     final installing = status == PluginCatalogItemStatus.install;
@@ -366,14 +412,17 @@ class _CatalogRuleAction extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
       ),
       onPressed: busy ? null : onPressed,
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (busy)
-          const LoadingIndicator(size: 20)
-        else
-          Icon(installing ? Icons.add_rounded : Icons.sync_rounded, size: 18),
-        const SizedBox(width: 6),
-        Text(installing ? (busy ? '安装中' : '安装') : (busy ? '更新中' : '更新')),
-      ]),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (busy)
+            const LoadingIndicator(size: 20)
+          else
+            Icon(installing ? Icons.add_rounded : Icons.sync_rounded, size: 18),
+          const SizedBox(width: 6),
+          Text(installing ? (busy ? '安装中' : '安装') : (busy ? '更新中' : '更新')),
+        ],
+      ),
     );
   }
 }
