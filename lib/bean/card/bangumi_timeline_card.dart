@@ -12,6 +12,7 @@ class BangumiTimelineCard extends StatelessWidget {
     required this.onTap,
     this.isWatching = false,
     this.compact = false,
+    this.focusNode,
   });
 
   final BangumiItem bangumiItem;
@@ -19,9 +20,11 @@ class BangumiTimelineCard extends StatelessWidget {
   final bool isWatching;
   final bool compact;
   final VoidCallback onTap;
+  final FocusNode? focusNode;
 
-  static final _episodePattern =
-      RegExp(r'^\s*([1-9]\d*)\s*[话話集](?=\s*(?:[/／]|$))');
+  static final _episodePattern = RegExp(
+    r'^\s*([1-9]\d*)\s*[话話集](?=\s*(?:[/／]|$))',
+  );
 
   static const _contentPadding = 12.0;
   static const _cornerRadius = 28.0;
@@ -32,8 +35,10 @@ class BangumiTimelineCard extends StatelessWidget {
   static const _metadataGap = 8.0;
   static const _footerGap = 12.0;
   static const _ratingIconSize = 16.0;
-  static const _ratingPadding =
-      EdgeInsets.symmetric(horizontal: 10, vertical: 6);
+  static const _ratingPadding = EdgeInsets.symmetric(
+    horizontal: 10,
+    vertical: 6,
+  );
 
   // Shared by the grid and card to keep their text-scaled heights in sync.
   static double heightFor(TextScaler scaler, {bool compact = false}) {
@@ -79,10 +84,13 @@ class BangumiTimelineCard extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
+          focusNode: focusNode,
           onTap: onTap,
           child: SizedBox(
-            height:
-                heightFor(MediaQuery.textScalerOf(context), compact: compact),
+            height: heightFor(
+              MediaQuery.textScalerOf(context),
+              compact: compact,
+            ),
             child: Padding(
               padding: const EdgeInsets.all(_contentPadding),
               child: Row(
@@ -104,8 +112,9 @@ class BangumiTimelineCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final translatedName = bangumiItem.nameCn.trim();
-    final title =
-        translatedName.isNotEmpty ? translatedName : bangumiItem.name.trim();
+    final title = translatedName.isNotEmpty
+        ? translatedName
+        : bangumiItem.name.trim();
     final supportingText = _supportingText(title);
 
     return Column(
@@ -153,8 +162,11 @@ class BangumiTimelineCard extends StatelessWidget {
                 if (showRating) const SizedBox(width: 8),
                 Tooltip(
                   message: '正在追',
-                  child: Icon(Icons.bookmark_rounded,
-                      size: 20, color: colors.primary),
+                  child: Icon(
+                    Icons.bookmark_rounded,
+                    size: 20,
+                    color: colors.primary,
+                  ),
                 ),
               ],
             ],
@@ -176,13 +188,16 @@ class BangumiTimelineCard extends StatelessWidget {
             transitionOnUserGestures: true,
             child: ClipRRect(
               borderRadius: const BorderRadius.all(
-                  Radius.circular(_cornerRadius - _contentPadding)),
+                Radius.circular(_cornerRadius - _contentPadding),
+              ),
               child: imageUrl.isEmpty
                   ? ColoredBox(
                       color: colors.surfaceContainerHighest,
                       child: Center(
-                        child: Icon(Icons.movie_outlined,
-                            color: colors.onSurfaceVariant),
+                        child: Icon(
+                          Icons.movie_outlined,
+                          color: colors.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : NetworkImgLayer(
@@ -205,10 +220,12 @@ class BangumiTimelineCard extends StatelessWidget {
       height: _labelLineHeight,
     );
     if (bangumiItem.ratingScore <= 0) {
-      return Text('暂无评分',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: labelStyle?.copyWith(color: colors.onSurfaceVariant));
+      return Text(
+        '暂无评分',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: labelStyle?.copyWith(color: colors.onSurfaceVariant),
+      );
     }
     final score = bangumiItem.ratingScore.toStringAsFixed(1);
     return Semantics(
@@ -223,16 +240,21 @@ class BangumiTimelineCard extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.star_rounded,
-                size: _ratingIconSize, color: colors.onSecondaryContainer),
+            Icon(
+              Icons.star_rounded,
+              size: _ratingIconSize,
+              color: colors.onSecondaryContainer,
+            ),
             const SizedBox(width: 4),
             Flexible(
-              child: Text(score,
-                  maxLines: 1,
-                  style: labelStyle?.copyWith(
-                    color: colors.onSecondaryContainer,
-                    fontWeight: FontWeight.w700,
-                  )),
+              child: Text(
+                score,
+                maxLines: 1,
+                style: labelStyle?.copyWith(
+                  color: colors.onSecondaryContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ],
         ),

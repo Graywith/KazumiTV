@@ -1,4 +1,6 @@
 import 'dart:ui';
+import 'dart:math' as math;
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/widget/bangumi_mirror_error_widget.dart';
@@ -25,6 +27,13 @@ class PopularPage extends StatefulWidget {
 
 class _PopularPageState extends State<PopularPage> {
   late final ScrollController scrollController;
+  final _firstPosterFocus = FocusNode(debugLabel: 'TV content entry');
+  final _categoryFocus = FocusNode();
+  final _categoryChoices = ['', ...defaultAnimeTags];
+  late final _categoryNodes = List.generate(
+    _categoryChoices.length,
+    (_) => FocusNode(),
+  );
   PopularController get popularController => widget.controller;
 
   @override
@@ -43,6 +52,11 @@ class _PopularPageState extends State<PopularPage> {
   void dispose() {
     scrollController.removeListener(scrollListener);
     scrollController.dispose();
+    _firstPosterFocus.dispose();
+    _categoryFocus.dispose();
+    for (final node in _categoryNodes) {
+      node.dispose();
+    }
     super.dispose();
   }
 
@@ -76,7 +90,7 @@ class _PopularPageState extends State<PopularPage> {
                 duration: const Duration(milliseconds: 300),
                 child: popularController.isLoadingMore
                     ? const LinearProgressIndicator(minHeight: 4)
-                    : const SizedBox(height: 4),
+                    : SizedBox(height: isTv ? 0 : 4),
               ),
             ),
           ),
@@ -120,14 +134,16 @@ class _PopularPageState extends State<PopularPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeOut,
-        ),
-        child: const Icon(Icons.arrow_upward),
-      ),
+      floatingActionButton: isTv
+          ? null
+          : FloatingActionButton(
+              onPressed: () => scrollController.animateTo(
+                0,
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeOut,
+              ),
+              child: const Icon(Icons.arrow_upward),
+            ),
     );
   }
 
@@ -138,6 +154,38 @@ class _PopularPageState extends State<PopularPage> {
     }
     if (MediaQuery.sizeOf(context).width > LayoutBreakpoint.medium['width']!) {
       crossCount = 6;
+    }
+    if (isTv) {
+      return SliverLayoutBuilder(
+        builder: (context, constraints) {
+          const spacing = 8.0;
+          final textHeight = MediaQuery.textScalerOf(context).scale(36) + 4;
+          final rowHeight =
+              (constraints.viewportMainAxisExtent - kToolbarHeight - spacing) /
+              2;
+          final posterWidth = math.max(1.0, rowHeight - textHeight) * 0.65;
+          final columns =
+              ((constraints.crossAxisExtent + spacing) /
+                      (posterWidth + spacing))
+                  .ceil()
+                  .clamp(3, 12);
+          return SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing,
+              mainAxisExtent: rowHeight,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => BangumiCardV(
+                bangumiItem: bangumiList[index],
+                focusNode: index == 0 ? _firstPosterFocus : null,
+              ),
+              childCount: bangumiList.length,
+            ),
+          );
+        },
+      );
     }
     return SliverPadding(
       padding: const EdgeInsets.all(8),
@@ -167,7 +215,7 @@ class _PopularPageState extends State<PopularPage> {
     return SliverAppBar(
       pinned: true,
       stretch: true,
-      expandedHeight: 120,
+      expandedHeight: isTv ? kToolbarHeight : 120,
       elevation: 0,
       titleSpacing: 0,
       centerTitle: false,
@@ -185,15 +233,19 @@ class _PopularPageState extends State<PopularPage> {
                           (maxExtent - kToolbarHeight))
                       .clamp(0.0, 1.0));
               // 字重收缩后为 w500，展开时为 w700
-              final fontWeight = t < 0.5 ? FontWeight.w700 : FontWeight.w500;
-              final fontSize = lerpDouble(28, 20, t)!;
+              final fontWeight = isTv || t < 0.5
+                  ? FontWeight.w700
+                  : FontWeight.w500;
+              final fontSize = isTv
+                  ? theme.textTheme.headlineSmall!.fontSize!
+                  : lerpDouble(28, 20, t)!;
               return Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(
+                  padding: EdgeInsets.only(
                     left: 16,
-                    top: 8,
-                    bottom: 8,
+                    top: isTv ? 0 : 8,
+                    bottom: isTv ? 0 : 8,
                     right: 60,
                   ),
                   child: SizedBox(
@@ -202,19 +254,37 @@ class _PopularPageState extends State<PopularPage> {
                       builder: (_) {
                         final bool isTrend = popularController.currentTag == '';
                         return KazumiMenuButton(
+                          childFocusNode: _categoryFocus,
+                          trapTvFocus: isTv,
+                          onOpen: () {
+                            if (isTv)
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted)
+                                  _categoryNodes[_categoryChoices.indexOf(
+                                        popularController.currentTag,
+                                      )]
+                                      .requestFocus();
+                              });
+                          },
                           animated: true,
                           style: const MenuStyle(
                             maximumSize: WidgetStatePropertyAll(Size(240, 350)),
                           ),
                           menuChildren: [
-                            for (final tag in ['', ...defaultAnimeTags])
+                            for (final tag in _categoryChoices)
                               KazumiMenuItem(
                                 label: tag.isEmpty ? '热门番组' : tag,
                                 selected: tag == popularController.currentTag,
+                                focusNode: isTv
+                                    ? _categoryNodes[_categoryChoices.indexOf(
+                                        tag,
+                                      )]
+                                    : null,
                                 onPressed: () => _selectTag(tag),
                               ),
                           ],
                           builder: (context, toggle) => InkWell(
+                            focusNode: _categoryFocus,
                             borderRadius: BorderRadius.circular(8),
                             onTap: toggle,
                             child: Row(
@@ -262,10 +332,13 @@ class _PopularPageState extends State<PopularPage> {
         ),
       IconButton(
         tooltip: '历史记录',
+        iconSize: isTv
+            ? Theme.of(context).textTheme.headlineSmall!.fontSize
+            : null,
         onPressed: () => context.pushNamed('/settings/history/'),
         icon: const Icon(Icons.history),
       ),
-      if (isDesktop() && !DesktopWindowConfig.showWindowButton)
+      if (!isTv && isDesktop() && !DesktopWindowConfig.showWindowButton)
         IconButton(
           tooltip: '退出',
           onPressed: () => windowManager.close(),

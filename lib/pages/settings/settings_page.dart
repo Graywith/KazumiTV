@@ -1,5 +1,6 @@
 import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/widget/kazumi_menu.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 
@@ -177,6 +178,8 @@ class _SettingsPageState extends State<SettingsPage> {
   final _outletKey = GlobalKey<RouterOutletState>();
   Object? _categoryNavigation;
   final _sidebarFocus = FocusScopeNode();
+  bool _closingMenu = false;
+  bool _lastPaneWasSidebar = true;
   final _playerFocus = FocusNode(debugLabel: 'TV playback settings');
 
   @override
@@ -239,9 +242,26 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
-  void _goBack() {
+  void _goBack({bool fromToolbar = false}) {
     if (isTv) {
-      if (!_sidebarFocus.hasFocus) {
+      if (_closingMenu) return;
+      _closingMenu = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _closingMenu = false;
+      });
+      WidgetsBinding.instance.scheduleFrame();
+      if (KazumiMenuButton.closeActiveTvMenu()) return;
+      if (TvSupport.finishInputEditing()) return;
+      if (ModalRoute.of(context)?.willHandlePopInternally == true) {
+        Navigator.of(context).pop();
+        return;
+      }
+      if (_outletKey.currentState?.maybePop() ?? false) return;
+      if (_isSecondaryRoute) {
+        _replaceCategory(_selectedCategoryPath);
+        return;
+      }
+      if (!_sidebarFocus.hasFocus && !(fromToolbar && _lastPaneWasSidebar)) {
         _sidebarFocus.requestFocus();
       } else {
         _exitSettings();
@@ -254,7 +274,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _exitSettings() {
     if (isTv) {
-      Navigator.of(context).pop();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.navigate('/tab/popular');
+      }
       return;
     }
     if (!context.maybePop())
@@ -278,7 +302,11 @@ class _SettingsPageState extends State<SettingsPage> {
               appBar: wide
                   ? SysAppBar(
                       title: const Text('设置'),
-                      leading: BackButton(onPressed: _exitSettings),
+                      leading: BackButton(
+                        onPressed: isTv
+                            ? () => _goBack(fromToolbar: true)
+                            : _exitSettings,
+                      ),
                     )
                   : null,
               body: SafeArea(
@@ -288,12 +316,15 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: [
                     // Keep the outlet at the same tree position on resize.
                     SizedBox(
-                      width: wide ? (isTv ? 210 : 280) : 0,
+                      width: wide ? (isTv ? 176 : 280) : 0,
                       child: Offstage(
                         offstage: !wide,
                         child: TvSettingsPane(
                           child: FocusScope(
                             node: _sidebarFocus,
+                            onFocusChange: (focused) {
+                              if (focused) _lastPaneWasSidebar = true;
+                            },
                             child: _SettingsMenu(
                               wide: true,
                               firstFocusNode: _playerFocus,
@@ -308,6 +339,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: TvSettingsPane(
                         child: Focus(
                           canRequestFocus: false,
+                          onFocusChange: (focused) {
+                            if (focused) _lastPaneWasSidebar = false;
+                          },
                           onKeyEvent: (_, event) {
                             if (!isTv ||
                                 event is KeyUpEvent ||
@@ -410,7 +444,12 @@ class _SettingsMenu extends StatelessWidget {
           for (final group in _settingsGroups)
             if (wide) ...[
               Padding(
-                padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
+                padding: EdgeInsets.fromLTRB(
+                  isTv ? 16 : 28,
+                  isTv ? 10 : 16,
+                  isTv ? 16 : 28,
+                  isTv ? 4 : 8,
+                ),
                 child: SectionHeader(title: Text(group.title)),
               ),
               for (final category in group.categories)
@@ -488,25 +527,21 @@ class _RailDestinationState extends State<_RailDestination> {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           focusNode: _focusNode,
-          onFocusChange: isTv
-              ? (focused) {
-                  if (focused) {
-                    onTap();
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      Future<void>.delayed(Duration.zero, () {
-                        if (mounted) _focusNode.requestFocus();
-                      });
-                    });
-                  }
-                }
-              : null,
-          onTap: onTap,
+          onTap: () {
+            onTap();
+            if (isTv)
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                Future<void>.delayed(Duration.zero, () {
+                  if (mounted) _focusNode.requestFocus();
+                });
+              });
+          },
           child: SizedBox(
-            height: 56,
+            height: isTv ? 42 : 56,
             child: Row(
               children: [
                 const SizedBox(width: 16),
-                Icon(category.icon, size: 24, color: foreground),
+                Icon(category.icon, size: isTv ? 20 : 24, color: foreground),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(

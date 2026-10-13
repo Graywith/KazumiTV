@@ -1,12 +1,13 @@
 import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:kazumi/bean/card/network_img_layer.dart';
 import 'package:kazumi/bean/widget/kazumi_menu.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
 import 'package:kazumi/modules/history/history_module.dart';
 
-class HistoryRecordTile extends StatelessWidget {
+class HistoryRecordTile extends StatefulWidget {
   const HistoryRecordTile({
     super.key,
     required this.history,
@@ -30,6 +31,67 @@ class HistoryRecordTile extends StatelessWidget {
   final bool editing;
   final bool busy;
 
+  @override
+  State<HistoryRecordTile> createState() => _HistoryRecordTileState();
+}
+
+class _HistoryRecordTileState extends State<HistoryRecordTile> {
+  final _rowFocus = FocusNode();
+  final _playFocus = FocusNode();
+  final _moreFocus = FocusNode();
+  History get history => widget.history;
+  VoidCallback get onPlay => widget.onPlay;
+  VoidCallback get onDetails => widget.onDetails;
+  Future<void> Function() get onDelete => widget.onDelete;
+  CollectType get collectType => widget.collectType;
+  ValueChanged<CollectType>? get onChangeCollect => widget.onChangeCollect;
+  BorderRadius get borderRadius => widget.borderRadius;
+  bool get editing => widget.editing;
+  bool get busy => widget.busy;
+  @override
+  void dispose() {
+    _rowFocus.dispose();
+    _playFocus.dispose();
+    _moreFocus.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _keys(FocusNode _, KeyEvent event) {
+    if (!isTv || editing || busy || event is KeyUpEvent)
+      return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowRight) {
+      if (_rowFocus.hasPrimaryFocus)
+        _playFocus.requestFocus();
+      else if (_playFocus.hasPrimaryFocus)
+        _moreFocus.requestFocus();
+      else if (!_moreFocus.hasPrimaryFocus)
+        return KeyEventResult.ignored;
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      if (_moreFocus.hasPrimaryFocus)
+        _playFocus.requestFocus();
+      else if (_playFocus.hasPrimaryFocus)
+        _rowFocus.requestFocus();
+      else
+        return KeyEventResult.ignored;
+      return KeyEventResult.handled;
+    }
+    if ((key == LogicalKeyboardKey.arrowUp ||
+            key == LogicalKeyboardKey.arrowDown) &&
+        (_playFocus.hasPrimaryFocus || _moreFocus.hasPrimaryFocus)) {
+      _rowFocus.requestFocus();
+      _rowFocus.focusInDirection(
+        key == LogicalKeyboardKey.arrowUp
+            ? TraversalDirection.up
+            : TraversalDirection.down,
+      );
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   String get _position {
     final progress = history.progresses[history.lastWatchEpisode]?.progress;
     if (progress == null || progress.inSeconds <= 0) return '';
@@ -42,7 +104,15 @@ class HistoryRecordTile extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => !isTv
+      ? _buildTile(context)
+      : Focus(
+          canRequestFocus: false,
+          onKeyEvent: _keys,
+          child: _buildTile(context),
+        );
+
+  Widget _buildTile(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final title = history.bangumiItem.nameCn.isEmpty
@@ -102,17 +172,24 @@ class HistoryRecordTile extends StatelessWidget {
                   history.adapterName,
                   time,
                 ].where((text) => text.isNotEmpty).join('，'),
-                child: InkWell(onTap: editing || busy ? null : onPlay),
+                child: InkWell(
+                  focusNode: isTv ? _rowFocus : null,
+                  onTap: editing || busy ? null : onPlay,
+                ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(isTv ? 8 : 16),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final wide = constraints.maxWidth >= 600;
                   final largeText =
                       MediaQuery.textScalerOf(context).scale(14) > 21;
-                  final coverWidth = wide ? 72.0 : 60.0;
+                  final coverWidth = isTv
+                      ? 56.0
+                      : wide
+                      ? 72.0
+                      : 60.0;
                   final content = Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -190,7 +267,7 @@ class HistoryRecordTile extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          SizedBox(width: isTv ? 10 : 16),
                           Expanded(
                             child: ExcludeSemantics(
                               child: IgnorePointer(child: content),
@@ -241,6 +318,7 @@ class HistoryRecordTile extends StatelessWidget {
 
     final buttons = [
       IconButton.filledTonal(
+        focusNode: isTv ? _playFocus : null,
         tooltip: '继续播放',
         style: IconButton.styleFrom(
           minimumSize: const Size(48, 48),
@@ -251,8 +329,9 @@ class HistoryRecordTile extends StatelessWidget {
         icon: const Icon(Icons.play_arrow_rounded),
       ),
       KazumiMenuButton(
+        childFocusNode: isTv ? _moreFocus : null,
         menuChildren: [
-          KazumiMenuItem(onPressed: onDetails, label: '番剧详情'),
+          KazumiMenuItem(autofocus: isTv, onPressed: onDetails, label: '番剧详情'),
           SubmenuButton(
             menuChildren: [
               for (final type in CollectType.values)
@@ -270,6 +349,7 @@ class HistoryRecordTile extends StatelessWidget {
           KazumiMenuItem(destructive: true, onPressed: onDelete, label: '删除记录'),
         ],
         builder: (context, toggle) => IconButton(
+          focusNode: isTv ? _moreFocus : null,
           tooltip: '更多操作',
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           onPressed: toggle,

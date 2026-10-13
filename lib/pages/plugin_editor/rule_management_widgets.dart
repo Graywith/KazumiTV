@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
 
 class RulePageIntro extends StatelessWidget {
@@ -20,28 +21,41 @@ class RulePageIntro extends StatelessWidget {
     final colors = theme.colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isTv ? 12 : 24),
       decoration: BoxDecoration(
         color: colors.primaryContainer,
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(isTv ? 12 : 32),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(
-              child: Text(title,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
                   style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: colors.onPrimaryContainer)),
-            ),
-            const SizedBox(width: 16),
-            Icon(icon, size: 32, color: colors.onPrimaryContainer),
-          ]),
+                    fontWeight: FontWeight.w700,
+                    color: colors.onPrimaryContainer,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Icon(
+                icon,
+                size: isTv ? 20 : 32,
+                color: colors.onPrimaryContainer,
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
-          Text(description,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: colors.onPrimaryContainer)),
+          Text(
+            description,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onPrimaryContainer,
+            ),
+          ),
           if (actions.isNotEmpty) ...[
             const SizedBox(height: 20),
             Wrap(spacing: 8, runSpacing: 8, children: actions),
@@ -78,21 +92,30 @@ class RuleSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(children: [
-              if (icon != null) ...[
-                Icon(icon, color: theme.colorScheme.primary),
-                const SizedBox(width: 12),
+            Row(
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, color: theme.colorScheme.primary),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ],
-              Expanded(
-                  child: Text(title,
-                      style: theme.textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w600))),
-            ]),
+            ),
             if (description != null) ...[
               const SizedBox(height: 6),
-              Text(description!,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              Text(
+                description!,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ],
             const SizedBox(height: 24),
             child,
@@ -103,8 +126,13 @@ class RuleSection extends StatelessWidget {
   }
 }
 
-InputDecoration ruleInputDecoration(BuildContext context,
-    {String? label, String? hint, Widget? prefix, Widget? suffix}) {
+InputDecoration ruleInputDecoration(
+  BuildContext context, {
+  String? label,
+  String? hint,
+  Widget? prefix,
+  Widget? suffix,
+}) {
   final colors = Theme.of(context).colorScheme;
   return InputDecoration(
     labelText: label,
@@ -115,11 +143,16 @@ InputDecoration ruleInputDecoration(BuildContext context,
     fillColor: colors.surfaceContainerHighest,
     contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
     border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide.none,
+    ),
     enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide.none,
+    ),
     focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: colors.primary, width: 2)),
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: colors.primary, width: 2),
+    ),
   );
 }

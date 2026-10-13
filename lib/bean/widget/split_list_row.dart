@@ -1,10 +1,11 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
 
 import 'package:kazumi/bean/widget/tonal_card.dart';
 
 const double splitListOuterRadius = tonalCardRadius;
 const double splitListInnerRadius = 4;
-const double splitListRowGap = 4;
+const double splitListRowGap = isTv ? 2 : 4;
 
 const Duration splitListMotionDuration = Duration(milliseconds: 250);
 const Curve splitListMotionCurve = Curves.easeInOutCubic;
@@ -64,21 +65,27 @@ class _SplitListRowState extends State<SplitListRow> {
         color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(
-              _pressed ? widget.pressedRadius : widget.topRadius),
+            _pressed ? widget.pressedRadius : widget.topRadius,
+          ),
           bottom: Radius.circular(
-              _pressed ? widget.pressedRadius : widget.bottomRadius),
+            _pressed ? widget.pressedRadius : widget.bottomRadius,
+          ),
         ),
       ),
       child: Material(
         type: MaterialType.transparency,
         child: ListTileTheme(
           data: theme.listTileTheme.copyWith(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            titleTextStyle:
-                theme.textTheme.bodyLarge?.copyWith(color: colors.onSurface),
-            subtitleTextStyle: theme.textTheme.bodyMedium
-                ?.copyWith(color: colors.onSurfaceVariant),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
+            titleTextStyle: theme.textTheme.bodyLarge?.copyWith(
+              color: colors.onSurface,
+            ),
+            subtitleTextStyle: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
           ),
           child: _SplitRowScope(onPressChanged: _reportPress, child: child),
         ),
@@ -117,8 +124,9 @@ class SplitListGroup extends StatelessWidget {
           if (i > 0) const SizedBox(height: splitListRowGap),
           SplitListRow(
             topRadius: i == 0 ? outerRadius : splitListInnerRadius,
-            bottomRadius:
-                i == children.length - 1 ? outerRadius : splitListInnerRadius,
+            bottomRadius: i == children.length - 1
+                ? outerRadius
+                : splitListInnerRadius,
             pressedRadius: outerRadius,
             child: children[i],
           ),

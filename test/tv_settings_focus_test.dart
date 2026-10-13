@@ -1,9 +1,85 @@
+import 'package:kazumi/bean/settings/settings_dropdown_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kazumi/bean/tv/tv_support.dart';
 
 void main() {
+  testWidgets(
+    'Settings dropdown enters current choice, contains focus and closes with Back',
+    (tester) async {
+      final value = ValueNotifier(1);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (_, child) => TvSupport(child: child!),
+          home: Scaffold(
+            body: TvSettingsPane(
+              child: Column(
+                children: [
+                  ValueListenableBuilder<int>(
+                    valueListenable: value,
+                    builder: (_, selected, _) => SettingsDropdownTile<int>(
+                      title: const Text('视频比例'),
+                      value: selected,
+                      options: const {0: '自动', 1: '原始', 2: '拉伸'},
+                      onChanged: (next) => value.value = next,
+                    ),
+                  ),
+                  TextButton(onPressed: () {}, child: const Text('下一个设置')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      Focus.of(tester.element(find.text('视频比例'))).requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      final current = tester.widget<MenuItemButton>(
+        find.widgetWithText(MenuItemButton, '原始'),
+      );
+      expect(current.focusNode?.hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(current.focusNode!.hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(value.value, 2);
+      expect(find.byType(MenuItemButton), findsNothing);
+      expect(Focus.of(tester.element(find.text('视频比例'))).hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<MenuItemButton>(find.widgetWithText(MenuItemButton, '拉伸'))
+            .focusNode!
+            .hasFocus,
+        isTrue,
+      );
+      for (var i = 0; i < 10; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      }
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<MenuItemButton>(find.widgetWithText(MenuItemButton, '拉伸'))
+            .focusNode!
+            .hasFocus,
+        isTrue,
+      );
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(MenuItemButton), findsNothing);
+      expect(Focus.of(tester.element(find.text('视频比例'))).hasFocus, isTrue);
+      await tester.pumpWidget(const SizedBox());
+      value.dispose();
+    },
+  );
+
   testWidgets('Settings columns keep visible focus at their vertical edges', (
     tester,
   ) async {

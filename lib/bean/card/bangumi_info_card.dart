@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:kazumi/bean/widget/collect_button.dart';
@@ -35,7 +36,7 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('  评分透视:'),
-          SizedBox(height: 16),
+          SizedBox(height: isTv ? 8 : 16),
           AspectRatio(
             aspectRatio: 2,
             child: BarChart(
@@ -120,7 +121,7 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 300,
+      height: isTv ? 270 : 300,
       constraints: BoxConstraints(maxWidth: 950),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,7 +134,7 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          SizedBox(height: 16),
+          SizedBox(height: isTv ? 8 : 16),
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,12 +180,12 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                                   ? '2000-11-11' // Skeleton Loader 占位符
                                   : widget.bangumiItem.airDate,
                               style: TextStyle(
-                                fontSize: 20,
+                                fontSize: isTv ? 17 : 20,
                                 fontWeight: FontWeight.bold,
                                 color: Theme.of(context).colorScheme.primary,
                               ),
                             ),
-                            SizedBox(height: 8),
+                            SizedBox(height: isTv ? 4 : 8),
                             Text(
                               widget.showRating
                                   ? '${widget.bangumiItem.votes} 人评分:'
@@ -195,7 +196,7 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                               Text(
                                 '10.0 ********',
                                 style: TextStyle(
-                                  fontSize: 20,
+                                  fontSize: isTv ? 17 : 20,
                                   fontWeight: FontWeight.bold,
                                   color: Theme.of(context).colorScheme.primary,
                                 ),
@@ -208,7 +209,7 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                                         ? '${widget.bangumiItem.ratingScore}'
                                         : '***',
                                     style: TextStyle(
-                                      fontSize: 16,
+                                      fontSize: isTv ? 14 : 16,
                                       fontWeight: FontWeight.bold,
                                       color: Theme.of(
                                         context,
@@ -233,14 +234,14 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                                   ),
                                 ],
                               ),
-                            SizedBox(height: 8),
+                            SizedBox(height: isTv ? 4 : 8),
                             Text('Bangumi Ranked:'),
                             Text(
                               widget.showRating
                                   ? '#${widget.bangumiItem.rank}'
                                   : '***',
                               style: TextStyle(
-                                fontSize: 20,
+                                fontSize: isTv ? 17 : 20,
                                 fontWeight: FontWeight.bold,
                                 color: Theme.of(context).colorScheme.primary,
                               ),
@@ -252,11 +253,11 @@ class _BangumiInfoCardVState extends State<BangumiInfoCardV> {
                           children: [
                             if (widget.primaryAction != null) ...[
                               widget.primaryAction!,
-                              const SizedBox(height: 8),
+                              const SizedBox(height: isTv ? 4 : 8),
                             ],
                             SizedBox(
-                              width: 120,
-                              height: 40,
+                              width: isTv ? 112 : 120,
+                              height: isTv ? 36 : 40,
                               child: CollectButton.extend(
                                 bangumiItem: widget.bangumiItem,
                               ),

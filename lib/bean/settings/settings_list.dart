@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
 
 import 'package:kazumi/bean/widget/content_section.dart';
@@ -6,11 +7,7 @@ import 'package:kazumi/bean/widget/split_list_row.dart';
 enum _TileKind { plain, toggle, radio }
 
 class SettingsList extends StatelessWidget {
-  const SettingsList({
-    super.key,
-    required this.sections,
-    this.maxWidth = 1000,
-  });
+  const SettingsList({super.key, required this.sections, this.maxWidth = 1000});
 
   final List<Widget> sections;
 
@@ -50,7 +47,14 @@ class SettingsSection extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return Padding(
-      padding: margin ?? const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding:
+          margin ??
+          EdgeInsets.fromLTRB(
+            isTv ? 10 : 16,
+            0,
+            isTv ? 10 : 16,
+            isTv ? 10 : 16,
+          ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -64,8 +68,9 @@ class SettingsSection extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: DefaultTextStyle.merge(
-                style: textTheme.bodySmall
-                    ?.copyWith(color: colorScheme.onSurfaceVariant),
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
                 child: bottomInfo!,
               ),
             ),
@@ -126,8 +131,8 @@ class _TileLabel extends StatelessWidget {
     return Row(
       children: [
         if (leading != null) ...[
-          Icon(leading, size: 24, color: secondary),
-          const SizedBox(width: 16),
+          Icon(leading, size: isTv ? 20 : 24, color: secondary),
+          SizedBox(width: isTv ? 10 : 16),
         ],
         Expanded(
           child: Column(
@@ -175,7 +180,10 @@ class SettingsCategoryTile extends StatelessWidget {
       onTap: onTap,
       onHighlightChanged: SplitListRow.pressReporterOf(context),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: isTv ? 12 : 16,
+          vertical: isTv ? 4 : 12,
+        ),
         child: Row(
           children: [
             Container(
@@ -191,7 +199,7 @@ class SettingsCategoryTile extends StatelessWidget {
                 color: colorScheme.onSecondaryContainer,
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: isTv ? 10 : 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,8 +208,9 @@ class SettingsCategoryTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     description,
-                    style: textTheme.bodySmall
-                        ?.copyWith(color: colorScheme.onSurfaceVariant),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -264,8 +273,10 @@ class SettingsSliderTile extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: colorScheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(8),
@@ -306,10 +317,11 @@ class SettingsTile<T> extends StatelessWidget {
     this.value,
     this.onPressed,
     this.enabled = true,
-  })  : _kind = _TileKind.plain,
-        onToggle = null,
-        initialValue = null,
-        radioValue = null;
+    this.focusNode,
+  }) : _kind = _TileKind.plain,
+       onToggle = null,
+       initialValue = null,
+       radioValue = null;
 
   /// Row taps pass null to [onToggle]; switch gestures pass the new value.
   const SettingsTile.switchTile({
@@ -320,11 +332,12 @@ class SettingsTile<T> extends StatelessWidget {
     this.leading,
     this.description,
     this.enabled = true,
-  })  : _kind = _TileKind.toggle,
-        trailing = null,
-        value = null,
-        onPressed = null,
-        radioValue = null;
+  }) : _kind = _TileKind.toggle,
+       focusNode = null,
+       trailing = null,
+       value = null,
+       onPressed = null,
+       radioValue = null;
 
   const SettingsTile.radioTile({
     super.key,
@@ -333,13 +346,15 @@ class SettingsTile<T> extends StatelessWidget {
     this.leading,
     this.description,
     this.enabled = true,
-  })  : _kind = _TileKind.radio,
-        trailing = null,
-        value = null,
-        onPressed = null,
-        onToggle = null,
-        initialValue = null;
+  }) : _kind = _TileKind.radio,
+       focusNode = null,
+       trailing = null,
+       value = null,
+       onPressed = null,
+       onToggle = null,
+       initialValue = null;
 
+  final FocusNode? focusNode;
   final Widget title;
 
   final IconData? leading;
@@ -372,16 +387,21 @@ class SettingsTile<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final secondary =
-        enabled ? colorScheme.onSurfaceVariant : _disabledOn(context);
+    final secondary = enabled
+        ? colorScheme.onSurfaceVariant
+        : _disabledOn(context);
 
     return InkWell(
+      focusNode: focusNode,
       onTap: _tapHandler(context),
       onHighlightChanged: SplitListRow.pressReporterOf(context),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: isTv ? 12 : 16,
+          vertical: isTv ? 4 : 12,
+        ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 32),
+          constraints: BoxConstraints(minHeight: isTv ? 28 : 32),
           child: Row(
             children: [
               Expanded(
@@ -408,9 +428,12 @@ class SettingsTile<T> extends StatelessWidget {
               ],
               if (_kind == _TileKind.toggle) ...[
                 const SizedBox(width: 12),
-                Switch(
-                  value: initialValue ?? false,
-                  onChanged: enabled ? onToggle : null,
+                SizedBox(
+                  height: isTv ? 32 : null,
+                  child: Switch(
+                    value: initialValue ?? false,
+                    onChanged: enabled ? onToggle : null,
+                  ),
                 ),
               ],
               if (_kind == _TileKind.radio) ...[

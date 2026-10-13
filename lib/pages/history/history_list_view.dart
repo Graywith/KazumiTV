@@ -126,7 +126,10 @@ class _HistoryListViewState extends State<HistoryListView> {
                 slivers: [
                   if (widget.header != null)
                     SliverPadding(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTv ? 12 : 16,
+                        vertical: isTv ? 4 : 16,
+                      ),
                       sliver: SliverToBoxAdapter(child: widget.header!),
                     ),
                   if (!isTv && (widget.entries.isNotEmpty || filtered))
@@ -235,7 +238,7 @@ class _HistoryListViewState extends State<HistoryListView> {
       final theme = Theme.of(context);
       return Padding(
         key: row.key,
-        padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
+        padding: EdgeInsets.fromLTRB(4, isTv ? 6 : 24, 4, isTv ? 4 : 12),
         child: Semantics(
           header: true,
           child: Row(

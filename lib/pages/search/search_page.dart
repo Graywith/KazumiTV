@@ -37,6 +37,7 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final _input = TextEditingController();
   final _inputFocus = FocusNode();
+  final _firstResultFocus = FocusNode(debugLabel: 'TV search first result');
   final _scroll = ScrollController();
   // Preserve the input subtree when the header moves in or out of the scroll view.
   final _searchHeaderKey = GlobalKey();
@@ -55,7 +56,8 @@ class _SearchPageState extends State<SearchPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _applyFilters(
-            SearchFilterState(tags: [Uri.decodeComponent(widget.inputTag)]));
+          SearchFilterState(tags: [Uri.decodeComponent(widget.inputTag)]),
+        );
       });
     }
   }
@@ -64,6 +66,7 @@ class _SearchPageState extends State<SearchPage> {
   void dispose() {
     _input.dispose();
     _inputFocus.dispose();
+    _firstResultFocus.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -84,6 +87,16 @@ class _SearchPageState extends State<SearchPage> {
     final request = _controller.searchBangumi(query, type: 'init');
     if (_scroll.hasClients) _scroll.jumpTo(0);
     await request;
+    if (isTv && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+        if (_firstResultFocus.context != null)
+          _firstResultFocus.requestFocus();
+        else
+          _inputFocus.requestFocus();
+      });
+      setState(() {});
+    }
   }
 
   Future<void> _applyFilters(SearchFilterState filters) =>
@@ -152,120 +165,159 @@ class _SearchPageState extends State<SearchPage> {
           if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
               event.logicalKey == LogicalKeyboardKey.arrowUp) {
             SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-            _inputFocus.focusInDirection(event.logicalKey == LogicalKeyboardKey.arrowDown
-                ? TraversalDirection.down : TraversalDirection.up);
+            _inputFocus.focusInDirection(
+              event.logicalKey == LogicalKeyboardKey.arrowDown
+                  ? TraversalDirection.down
+                  : TraversalDirection.up,
+            );
             return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
         },
         child: SearchBar(
-        controller: _input,
-        focusNode: _inputFocus,
-        hintText: '搜索番剧名称',
-        textInputAction: TextInputAction.search,
-        constraints: const BoxConstraints(minHeight: 64),
-        elevation: const WidgetStatePropertyAll(0),
-        backgroundColor: WidgetStatePropertyAll(colors.surfaceContainerHigh),
-        padding:
-            const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 8)),
-        leading: IconButton(
-          tooltip: '搜索',
-          onPressed: () => _submit(_input.text),
-          icon: const Icon(Icons.search_rounded),
-        ),
-        trailing: [
-          if (value.text.isNotEmpty || _hasSearched)
-            IconButton(
+          controller: _input,
+          focusNode: _inputFocus,
+          hintText: '搜索番剧名称',
+          textInputAction: TextInputAction.search,
+          constraints: const BoxConstraints(minHeight: 64),
+          elevation: const WidgetStatePropertyAll(0),
+          backgroundColor: WidgetStatePropertyAll(colors.surfaceContainerHigh),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 8),
+          ),
+          leading: IconButton(
+            tooltip: '搜索',
+            onPressed: () => _submit(_input.text),
+            icon: const Icon(Icons.search_rounded),
+          ),
+          trailing: [
+            if (value.text.isNotEmpty || _hasSearched)
+              IconButton(
                 tooltip: '清空搜索',
                 onPressed: _clearSearch,
-                icon: const Icon(Icons.close_rounded)),
-          IconButton(
-            tooltip: '以图搜番',
-            onPressed: _imageSearch,
-            icon: const Icon(Icons.image_search_rounded),
-          ),
-        ],
-        onSubmitted: _submit,
-      )),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            IconButton(
+              tooltip: '以图搜番',
+              onPressed: _imageSearch,
+              icon: const Icon(Icons.image_search_rounded),
+            ),
+          ],
+          onSubmitted: _submit,
+        ),
+      ),
     );
   }
 
   Widget _header() => Padding(
-        key: _searchHeaderKey,
-        padding: EdgeInsets.only(top: _hasSearched ? 8 : 24, bottom: 16),
-        child: _searchField(),
-      );
+    key: _searchHeaderKey,
+    padding: EdgeInsets.only(top: _hasSearched ? 8 : 24, bottom: 16),
+    child: _searchField(),
+  );
 
   Widget _discovery() {
     final theme = Theme.of(context);
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Material(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
           type: MaterialType.transparency,
           child: ListTile(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
             leading: const Icon(Icons.tune_rounded),
             title: const Text('按条件查找'),
             subtitle: const Text('题材、放送时间与评分'),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: _showFilters,
-          )),
-      const SizedBox(height: 28),
-      Observer(builder: (_) {
-        final histories = _controller.searchHistories.toList();
-        if (histories.isEmpty) return const SizedBox.shrink();
-        return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
+          ),
+        ),
+        const SizedBox(height: 28),
+        Observer(
+          builder: (_) {
+            final histories = _controller.searchHistories.toList();
+            if (histories.isEmpty) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
                   padding: const EdgeInsets.only(left: 16, right: 4),
-                  child: Row(children: [
-                    Expanded(
-                        child: Text('最近搜索',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant))),
-                    if (_managingHistory)
-                      TextButton(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '最近搜索',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      if (_managingHistory)
+                        TextButton(
                           onPressed: () async {
                             await _controller.clearSearchHistory();
                             if (mounted) {
                               setState(() => _managingHistory = false);
                             }
                           },
-                          child: const Text('清空')),
-                    TextButton(
+                          child: const Text('清空'),
+                        ),
+                      TextButton(
                         onPressed: () => setState(
-                            () => _managingHistory = !_managingHistory),
-                        child: Text(_managingHistory ? '完成' : '管理')),
-                  ])),
-              for (final history in histories.take(10))
-                Material(
+                          () => _managingHistory = !_managingHistory,
+                        ),
+                        child: Text(_managingHistory ? '完成' : '管理'),
+                      ),
+                    ],
+                  ),
+                ),
+                for (final history in histories.take(10))
+                  Material(
                     type: MaterialType.transparency,
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 4),
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      leading: Icon(Icons.history_rounded,
-                          color: theme.colorScheme.onSurfaceVariant, size: 22),
-                      title: Text(_readableQuery(history.keyword),
-                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      leading: Icon(
+                        Icons.history_rounded,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        size: 22,
+                      ),
+                      title: Text(
+                        _readableQuery(history.keyword),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       trailing: _managingHistory
                           ? IconButton(
                               tooltip: '删除这条搜索记录',
                               onPressed: () =>
                                   _controller.deleteSearchHistory(history),
-                              icon: const Icon(Icons.close_rounded, size: 20))
-                          : Icon(Icons.north_west_rounded,
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                            )
+                          : Icon(
+                              Icons.north_west_rounded,
                               size: 18,
-                              color: theme.colorScheme.onSurfaceVariant),
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                       onTap: () => _submit(history.keyword),
-                    )),
-            ]);
-      }),
-    ]);
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
   }
 
   List<Widget> _resultSlivers(double width) {
@@ -277,8 +329,9 @@ class _SearchPageState extends State<SearchPage> {
         ? _controller.loadAbandonedBangumiIds()
         : <int>{};
     final items = allItems
-        .where((item) =>
-            !watched.contains(item.id) && !abandoned.contains(item.id))
+        .where(
+          (item) => !watched.contains(item.id) && !abandoned.contains(item.id),
+        )
         .toList();
     final busy = _controller.isLoading;
     final failed = _controller.isTimeOut;
@@ -287,49 +340,65 @@ class _SearchPageState extends State<SearchPage> {
 
     return [
       SliverToBoxAdapter(
-          child: Padding(
-        padding: const EdgeInsets.only(bottom: 20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(
-                child: Text('搜索结果',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w600))),
-            if (!submitted.isIdSearch)
-              _SearchSortMenu(
-                  value: submitted.sort,
-                  onChanged: (sort) =>
-                      _applyFilters(submitted.copyWith(sort: sort))),
-            IconButton(
-              tooltip: '筛选番剧',
-              onPressed: _showFilters,
-              icon: Badge(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  isLabelVisible: submitted.hasAdvancedFilters ||
-                      _controller.notShowWatchedBangumis ||
-                      _controller.notShowAbandonedBangumis,
-                  smallSize: 6,
-                  child: const Icon(Icons.tune_rounded)),
-            ),
-          ]),
-          Text(
-              busy
-                  ? '正在搜索…'
-                  : '${items.length} 部番剧${items.length < allItems.length ? ' · 隐藏 ${allItems.length - items.length} 部' : ''}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
-          if (summary.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(summary,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '搜索结果',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (!submitted.isIdSearch)
+                    _SearchSortMenu(
+                      value: submitted.sort,
+                      onChanged: (sort) =>
+                          _applyFilters(submitted.copyWith(sort: sort)),
+                    ),
+                  IconButton(
+                    tooltip: '筛选番剧',
+                    onPressed: _showFilters,
+                    icon: Badge(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      isLabelVisible:
+                          submitted.hasAdvancedFilters ||
+                          _controller.notShowWatchedBangumis ||
+                          _controller.notShowAbandonedBangumis,
+                      smallSize: 6,
+                      child: const Icon(Icons.tune_rounded),
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                busy
+                    ? '正在搜索…'
+                    : '${items.length} 部番剧${items.length < allItems.length ? ' · 隐藏 ${allItems.length - items.length} 部' : ''}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
-          ],
-        ]),
-      )),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (summary.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  summary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
       if (busy && allItems.isEmpty)
         const SliverToBoxAdapter(child: _SearchLoadingState())
       else if (allItems.isEmpty)
@@ -341,97 +410,138 @@ class _SearchPageState extends State<SearchPage> {
         )
       else if (items.isEmpty)
         SliverToBoxAdapter(
-            child: GeneralEmptyState(
-          icon: Icons.filter_alt_off_rounded,
-          title: '这些番剧被筛选隐藏了',
-          actions: [
-            StateActionButton.tonal(
-              onPressed: () async {
-                await _controller.setNotShowWatchedBangumis(false);
-                await _controller.setNotShowAbandonedBangumis(false);
-              },
-              icon: Icons.visibility_outlined,
-              text: '显示全部',
-            ),
-          ],
-        ))
+          child: GeneralEmptyState(
+            icon: Icons.filter_alt_off_rounded,
+            title: '这些番剧被筛选隐藏了',
+            actions: [
+              StateActionButton.tonal(
+                onPressed: () async {
+                  await _controller.setNotShowWatchedBangumis(false);
+                  await _controller.setNotShowAbandonedBangumis(false);
+                },
+                icon: Icons.visibility_outlined,
+                text: '显示全部',
+              ),
+            ],
+          ),
+        )
       else
         _SearchResultGrid(
+          firstFocus: isTv ? _firstResultFocus : null,
+          inputFocus: isTv ? _inputFocus : null,
           items: items,
           width: width,
           showRating: GStorage.getSetting(SettingsKeys.showRating),
         ),
       if (allItems.isNotEmpty || !failed)
         SliverToBoxAdapter(
-            child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Center(
-                  child: busy
-                      ? (allItems.isEmpty
-                          ? const SizedBox.shrink()
-                          : const LoadingIndicator(size: 32))
-                      : _controller.hasMoreSearchResults
-                          ? TextButton.icon(
-                              onPressed: _loadMore,
-                              icon: const Icon(Icons.expand_more_rounded),
-                              label: const Text('加载更多'))
-                          : Text('已经看到全部结果',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant)),
-                ))),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: busy
+                  ? (allItems.isEmpty
+                        ? const SizedBox.shrink()
+                        : const LoadingIndicator(size: 32))
+                  : _controller.hasMoreSearchResults
+                  ? TextButton.icon(
+                      onPressed: _loadMore,
+                      icon: const Icon(Icons.expand_more_rounded),
+                      label: const Text('加载更多'),
+                    )
+                  : Text(
+                      '已经看到全部结果',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+            ),
+          ),
+        ),
     ];
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => !isTv
+      ? _buildPage(context)
+      : FocusTraversalGroup(
+          policy: _SearchTvTraversalPolicy(_inputFocus, _firstResultFocus),
+          child: _buildPage(context),
+        );
+
+  Widget _buildPage(BuildContext context) {
     return Scaffold(
       appBar: const SysAppBar(
-          backgroundColor: Colors.transparent, title: Text('番剧搜索')),
+        backgroundColor: Colors.transparent,
+        title: Text('番剧搜索'),
+      ),
       body: SafeArea(
-          top: false,
-          child: LayoutBuilder(builder: (context, constraints) {
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
             final horizontal = constraints.maxWidth >= 700 ? 32.0 : 20.0;
-            final width = math.min(_hasSearched ? 1120.0 : 760.0,
-                constraints.maxWidth - horizontal * 2);
+            final width = math.min(
+              _hasSearched ? 1120.0 : 760.0,
+              constraints.maxWidth - horizontal * 2,
+            );
             final inset = (constraints.maxWidth - width) / 2;
-            final pinSearch = _hasSearched &&
+            final pinSearch =
+                _hasSearched &&
                 constraints.maxHeight >= 420 &&
                 MediaQuery.textScalerOf(context).scale(16) <= 24;
             Widget scrollView(List<Widget> slivers) => CustomScrollView(
-                  controller: _scroll,
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  slivers: [
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(inset, 0, inset, 24),
-                      sliver: SliverMainAxisGroup(slivers: slivers),
-                    )
-                  ],
-                );
-            return Column(children: [
-              if (pinSearch)
-                Padding(
+              controller: _scroll,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              slivers: [
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(inset, 0, inset, 24),
+                  sliver: SliverMainAxisGroup(slivers: slivers),
+                ),
+              ],
+            );
+            return Column(
+              children: [
+                if (pinSearch)
+                  Padding(
                     padding: EdgeInsets.symmetric(horizontal: inset),
-                    child: _header()),
-              Expanded(
+                    child: _header(),
+                  ),
+                Expanded(
                   child: _hasSearched
                       ? Observer(
                           builder: (_) => scrollView([
-                                if (!pinSearch)
-                                  SliverToBoxAdapter(child: _header()),
-                                ..._resultSlivers(width),
-                              ]))
+                            if (!pinSearch)
+                              SliverToBoxAdapter(child: _header()),
+                            ..._resultSlivers(width),
+                          ]),
+                        )
                       : scrollView([
                           SliverToBoxAdapter(child: _header()),
                           SliverToBoxAdapter(child: _discovery()),
-                        ])),
-            ]);
-          })),
+                        ]),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
+  }
+}
+
+class _SearchTvTraversalPolicy extends ReadingOrderTraversalPolicy {
+  _SearchTvTraversalPolicy(this.input, this.result);
+  final FocusNode input;
+  final FocusNode result;
+  @override
+  bool inDirection(FocusNode node, TraversalDirection direction) {
+    if ((node == input ||
+            node.context?.findAncestorWidgetOfExactType<EditableText>() !=
+                null) &&
+        direction == TraversalDirection.down &&
+        result.context != null) {
+      result.requestFocus();
+      return true;
+    }
+    return super.inDirection(node, direction);
   }
 }

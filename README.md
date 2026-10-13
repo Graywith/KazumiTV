@@ -29,7 +29,7 @@
 | 场景 | 按键 | 操作 |
 | --- | --- | --- |
 | 页面 | 方向键 | 移动焦点 |
-| 首页、设置侧栏 | 上 / 下 | 切换菜单并同步显示内容 |
+| 首页、设置侧栏 | 上 / 下 | 移动菜单焦点，按 OK 切换内容 |
 | 页面 | OK / Back | 确认 / 返回 |
 | 播放中 | 左 / 右 | 快退 / 快进 10 秒 |
 | 播放中 | OK / 菜单键 | 显示控制栏 |
@@ -45,14 +45,14 @@
 ```bash
 flutter pub get
 # Sony 电视包（v7a）
-bash tools/build_tv.sh 0.2.1 20319
+bash tools/build_tv.sh 0.3.7 20331
 # 仅构建电视包
-bash tools/build_tv.sh 0.2.1 20319 armeabi-v7a
+bash tools/build_tv.sh 0.3.7 20331 armeabi-v7a
 ```
 
 APK 命名为 `kazumi-tv-<ABI>-<版本>.apk`，输出到 `build/app/outputs/flutter-apk/`，同时发布到 `build/tv-updates/`。每次发布递增版本和构建号。
 
-默认仅构建 v7a，发布到局域网更新目录，并复制到 iCloud 云盘的 `Downloads` 目录。
+默认仅构建 v7a，发布到局域网更新目录，供电视在线升级。
 
 局域网更新配置见 [TV 构建与更新](tools/TV_UPDATES.md)。
 

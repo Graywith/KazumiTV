@@ -337,16 +337,23 @@ class _VideoPageState extends State<VideoPage>
   }
 
   void _onBackPressed() {
-    if (_handlingLocalBack) return;
     if (!isTv) {
       unawaited(Navigator.of(context).maybePop());
       return;
     }
+    if (_handlingLocalBack) return;
+    _handlingLocalBack = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _handlingLocalBack = false;
+    });
+    WidgetsBinding.instance.scheduleFrame();
+    if (TvSupport.finishInputEditing()) {
+      _exitConfirmation.reset();
+      return;
+    }
     if (ModalRoute.of(context)?.willHandlePopInternally == true) {
       _exitConfirmation.reset();
-      _handlingLocalBack = true;
       Navigator.of(context).pop();
-      _handlingLocalBack = false;
       return;
     }
     final now = DateTime.now();

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/widget/kazumi_menu.dart';
+import 'package:kazumi/bean/tv/tv_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -9,15 +11,121 @@ const isTv = bool.fromEnvironment('KAZUMI_TV');
 class TvSupport extends StatefulWidget {
   const TvSupport({super.key, required this.child});
   final Widget child;
+  static _TvSupportState? _active;
+  static bool get isInputEditing => _active?._editingFocus != null;
+  static bool finishInputEditing() => _active?._consumeInputBack() ?? false;
 
   @override
   State<TvSupport> createState() => _TvSupportState();
 }
 
-class _TvSupportState extends State<TvSupport> {
+class _TvSupportState extends State<TvSupport> with WidgetsBindingObserver {
+  final _navigationInput = _TvNavigationInputControl();
+  FocusNode? _editingFocus;
+  LocalHistoryEntry? _inputEntry;
+  bool _openingInput = false;
+  bool _inputBackConsumed = false;
+  bool _imeWasVisible = false;
+
+  EditableTextState? _focusedEditor() {
+    EditableTextState? editor;
+    FocusManager.instance.primaryFocus?.context?.visitAncestorElements((
+      element,
+    ) {
+      if (element is StatefulElement && element.state is EditableTextState) {
+        editor = element.state as EditableTextState;
+        return false;
+      }
+      return true;
+    });
+    return editor;
+  }
+
+  void _refreshFocus(FocusNode focus) {
+    if (focus.context == null || !focus.context!.mounted) return;
+    final previous = _openingInput;
+    _openingInput = true;
+    focus.unfocus();
+    FocusManager.instance.applyFocusChangesIfNeeded();
+    focus.requestFocus();
+    _openingInput = previous;
+  }
+
+  void _startEditing(EditableTextState editor) {
+    if (_editingFocus == editor.widget.focusNode) return;
+    _finishEditing(restoreFocus: false);
+    _openingInput = true;
+    _editingFocus = editor.widget.focusNode;
+    // Reattach through Flutter so Android receives the original keyboard type.
+    _editingFocus!.unfocus();
+    FocusManager.instance.applyFocusChangesIfNeeded();
+    TextInput.restorePlatformInputControl();
+    _editingFocus!.requestFocus();
+    editor.requestKeyboard();
+    final route = ModalRoute.of(editor.context);
+    if (route != null) {
+      _inputEntry = LocalHistoryEntry(
+        impliesAppBarDismissal: false,
+        onRemove: () {
+          _inputEntry = null;
+          if (_editingFocus != null) _markInputBack();
+          _finishEditing();
+        },
+      );
+      route.addLocalHistoryEntry(_inputEntry!);
+    }
+    _openingInput = false;
+    _imeWasVisible = WidgetsBinding.instance.platformDispatcher.views.any(
+      (view) => view.viewInsets.bottom > 0,
+    );
+  }
+
+  void _markInputBack() {
+    _inputBackConsumed = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _inputBackConsumed = false;
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  bool _consumeInputBack() {
+    if (_inputBackConsumed) return true;
+    final finished = _finishEditing();
+    if (finished) _markInputBack();
+    return finished;
+  }
+
+  bool _finishEditing({bool restoreFocus = true}) {
+    final focus = _editingFocus;
+    if (focus == null) return false;
+    _editingFocus = null;
+    _imeWasVisible = false;
+    final entry = _inputEntry;
+    _inputEntry = null;
+    entry?.remove();
+    TextInput.setInputControl(_navigationInput);
+    SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    if (restoreFocus) _refreshFocus(focus);
+    return true;
+  }
+
+  @override
+  void didChangeMetrics() {
+    final visible = WidgetsBinding.instance.platformDispatcher.views.any(
+      (view) => view.viewInsets.bottom > 0,
+    );
+    if (_imeWasVisible && !visible) _finishEditing();
+    _imeWasVisible = visible && _editingFocus != null;
+  }
+
   @override
   void initState() {
     super.initState();
+    if (isTv) {
+      TvSupport._active = this;
+      TextInput.setInputControl(_navigationInput);
+      WidgetsBinding.instance.addObserver(this);
+    }
     FocusManager.instance.highlightStrategy =
         FocusHighlightStrategy.alwaysTraditional;
     FocusManager.instance.addListener(_focusChanged);
@@ -25,6 +133,8 @@ class _TvSupportState extends State<TvSupport> {
   }
 
   KeyEventResult _initialFocus(KeyEvent event) {
+    final menuResult = KazumiMenuButton.handleTvMenuKey(event);
+    if (menuResult == KeyEventResult.handled) return menuResult;
     // Android sends a native Back event as well; let the route handle it once.
     if (defaultTargetPlatform == TargetPlatform.android &&
         event.logicalKey == LogicalKeyboardKey.goBack)
@@ -42,7 +152,14 @@ class _TvSupportState extends State<TvSupport> {
         }
         return true;
       });
-      if (!inSlider && focus?.context != null) {
+      if (!inSlider &&
+          focus?.context != null &&
+          focus?.debugLabel?.startsWith('TV weekday') != true &&
+          focus?.debugLabel != 'TV start watching' &&
+          focus?.debugLabel != 'TV collection action' &&
+          focus?.context?.findAncestorWidgetOfExactType<EditableText>() ==
+              null &&
+          focus?.context?.findAncestorWidgetOfExactType<SearchBar>() == null) {
         final scroll = Scrollable.maybeOf(focus!.context!);
         if (scroll != null && scroll.axisDirection == AxisDirection.down) {
           final up = event.logicalKey == LogicalKeyboardKey.arrowUp;
@@ -83,32 +200,37 @@ class _TvSupportState extends State<TvSupport> {
     }
     if (event is KeyDownEvent) {
       final focus = FocusManager.instance.primaryFocus;
-      EditableTextState? editor;
-      focus?.context?.visitAncestorElements((element) {
-        if (element is StatefulElement && element.state is EditableTextState) {
-          editor = element.state as EditableTextState;
-          return false;
-        }
-        return true;
-      });
+      final editor = _focusedEditor();
       final key = event.logicalKey;
       if (editor != null) {
         if (key == LogicalKeyboardKey.arrowUp ||
-            key == LogicalKeyboardKey.arrowDown ||
-            key == LogicalKeyboardKey.escape ||
-            key == LogicalKeyboardKey.goBack) {
+            key == LogicalKeyboardKey.arrowDown) {
+          _finishEditing();
           SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
           final direction = key == LogicalKeyboardKey.arrowUp
               ? TraversalDirection.up
               : TraversalDirection.down;
-          if (!focus!.focusInDirection(direction)) focus.nextFocus();
+          if (!focus!.focusInDirection(direction)) {
+            if (direction == TraversalDirection.up)
+              focus.previousFocus();
+            else
+              focus.nextFocus();
+          }
           return KeyEventResult.handled;
         }
-        if (key == LogicalKeyboardKey.select) {
-          editor!.requestKeyboard();
+        if ((key == LogicalKeyboardKey.select ||
+                key == LogicalKeyboardKey.enter ||
+                key == LogicalKeyboardKey.numpadEnter) &&
+            !editor.widget.readOnly &&
+            _editingFocus == null) {
+          _startEditing(editor);
           return KeyEventResult.handled;
         }
       }
+      if ((key == LogicalKeyboardKey.escape ||
+              key == LogicalKeyboardKey.goBack) &&
+          _finishEditing())
+        return KeyEventResult.handled;
       if (key == LogicalKeyboardKey.escape ||
           key == LogicalKeyboardKey.goBack) {
         WidgetsBinding.instance.handlePopRoute();
@@ -154,6 +276,20 @@ class _TvSupportState extends State<TvSupport> {
   }
 
   void _focusChanged() {
+    if (isTv &&
+        !_openingInput &&
+        _editingFocus != null &&
+        !_editingFocus!.hasFocus) {
+      _finishEditing(restoreFocus: false);
+      final editor = _focusedEditor();
+      if (editor != null) {
+        final node = editor.widget.focusNode;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _editingFocus == null && node.hasFocus)
+            _refreshFocus(node);
+        });
+      }
+    }
     final focus = FocusManager.instance.primaryFocus;
     final focusContext = focus?.context;
     final scope = focus?.nearestScope;
@@ -189,6 +325,12 @@ class _TvSupportState extends State<TvSupport> {
 
   @override
   void dispose() {
+    if (isTv) {
+      _finishEditing(restoreFocus: false);
+      if (TvSupport._active == this) TvSupport._active = null;
+      WidgetsBinding.instance.removeObserver(this);
+      TextInput.restorePlatformInputControl();
+    }
     FocusManager.instance.removeListener(_focusChanged);
     FocusManager.instance.removeEarlyKeyEventHandler(_initialFocus);
     super.dispose();
@@ -196,7 +338,7 @@ class _TvSupportState extends State<TvSupport> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme = isTv ? compactTvTheme(Theme.of(context)) : Theme.of(context);
     final color = theme.colorScheme.primary;
     final overlay = WidgetStateProperty.resolveWith<Color?>(
       (states) => states.contains(WidgetState.focused)
@@ -208,7 +350,7 @@ class _TvSupportState extends State<TvSupport> {
           overlayColor: overlay,
           side: WidgetStateProperty.resolveWith<BorderSide?>(
             (states) => states.contains(WidgetState.focused)
-                ? BorderSide(color: theme.colorScheme.onSurface, width: 3)
+                ? BorderSide(color: theme.colorScheme.onSurface, width: 2)
                 : original?.side?.resolve(states),
           ),
         );
@@ -282,3 +424,7 @@ class _TvSettingsTraversalPolicy extends ReadingOrderTraversalPolicy {
     }
   }
 }
+
+// A custom control makes Flutter attach navigation fields with TextInputType.none.
+// Android keeps the native keyboard hidden until the platform control is restored.
+class _TvNavigationInputControl with TextInputControl {}

@@ -54,8 +54,10 @@ class EpisodeSelectionPanelState extends State<EpisodeSelectionPanel> {
       widget.selectedEpisode > 0 &&
       widget.selectedEpisode <= widget.roads[widget.selectedRoad].data.length;
 
-  double get _toolbarHeight =>
-      math.max(56, MediaQuery.textScalerOf(context).scale(20) + 8);
+  double get _toolbarHeight => math.max(
+    isTv ? 40 : 56,
+    MediaQuery.textScalerOf(context).scale(isTv ? 16 : 20) + 8,
+  );
 
   void _selectRoad(int road) {
     if (_visibleRoad == road) return;
@@ -126,7 +128,12 @@ class EpisodeSelectionPanelState extends State<EpisodeSelectionPanel> {
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+                    padding: EdgeInsets.fromLTRB(
+                      isTv ? 12 : 16,
+                      isTv ? 8 : 20,
+                      isTv ? 12 : 16,
+                      4,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -142,7 +149,7 @@ class EpisodeSelectionPanelState extends State<EpisodeSelectionPanel> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: isTv ? 8 : 16),
                         _RoadSelector(
                           roads: widget.roads,
                           visibleRoad: _visibleRoad,
@@ -709,11 +716,11 @@ class _EpisodeRowState extends State<_EpisodeRow>
             }),
             child: ExcludeSemantics(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 56),
+                constraints: BoxConstraints(minHeight: isTv ? 40 : 56),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isTv ? 12 : 20,
+                    vertical: isTv ? 8 : 16,
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

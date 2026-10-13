@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
@@ -49,7 +50,7 @@ class _DisclaimerStepState extends State<DisclaimerStep> {
       leading: const OnboardingStepIcon(icon: Icons.waving_hand_rounded),
       title: '欢迎来到 Kazumi',
       child: TonalCard(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isTv ? 12 : 24),
         child: _statementsText == null
             ? const Padding(
                 padding: EdgeInsets.all(32),
@@ -58,22 +59,33 @@ class _DisclaimerStepState extends State<DisclaimerStep> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    Icon(Icons.description_outlined,
-                        color: Theme.of(context).colorScheme.primary),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text('免责声明',
-                          style: textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w600)),
-                    ),
-                  ]),
-                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.description_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '免责声明',
+                          style: textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: isTv ? 10 : 20),
                   for (final paragraph in _statementsText!.trim().split('\n'))
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(paragraph.trim(),
-                          style: textTheme.bodyMedium?.copyWith(height: 1.7)),
+                      child: Text(
+                        paragraph.trim(),
+                        style: textTheme.bodyMedium?.copyWith(
+                          height: isTv ? 1.3 : 1.7,
+                        ),
+                      ),
                     ),
                 ],
               ),

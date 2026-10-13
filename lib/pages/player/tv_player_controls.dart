@@ -226,7 +226,7 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
         child: Material(
           color: Colors.black87,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(32, 16, 32, 24),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
             child: Observer(
               builder: (_) {
                 final playback = widget.player.playback;
@@ -274,7 +274,7 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
                           icon: const Icon(Icons.skip_previous),
                           label: const Text('上一集'),
                         ),
-                        const SizedBox(width: 24),
+                        const SizedBox(width: 12),
                         FilledButton.icon(
                           focusNode: _playFocus,
                           onPressed: widget.player.playOrPause,
@@ -283,7 +283,7 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
                           ),
                           label: Text(playback.playing ? '暂停' : '播放'),
                         ),
-                        const SizedBox(width: 24),
+                        const SizedBox(width: 12),
                         TextButton.icon(
                           focusNode: _nextFocus,
                           onPressed: () => widget.onEpisode('next'),
@@ -291,7 +291,7 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
                           label: const Text('下一集'),
                         ),
                         if (widget.onDanmakuSearch != null) ...[
-                          const SizedBox(width: 24),
+                          const SizedBox(width: 12),
                           TextButton.icon(
                             focusNode: _danmakuFocus,
                             onPressed: () {
@@ -303,7 +303,7 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
                           ),
                         ],
                         if (widget.onEpisodes != null) ...[
-                          const SizedBox(width: 24),
+                          const SizedBox(width: 12),
                           TextButton.icon(
                             focusNode: _episodesFocus,
                             onPressed: _openEpisodes,

@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 
@@ -60,7 +61,7 @@ class SettingsDetailScaffold extends StatelessWidget {
         backgroundColor: Colors.transparent,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        toolbarHeight: 64,
+        toolbarHeight: isTv ? 40 : 64,
         titleSpacing: paneLeading == null
             ? 24
             : NavigationToolbar.kMiddleSpacing,

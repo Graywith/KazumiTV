@@ -1,3 +1,5 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
+import 'package:kazumi/bean/tv/tv_action_focus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/widget/kazumi_menu.dart';
@@ -34,6 +36,15 @@ class CollectButton extends StatefulWidget {
 
 class _CollectButtonState extends State<CollectButton> {
   final _collectController = inject<CollectController>();
+  final _buttonFocus = FocusNode(debugLabel: 'TV collection action');
+  final _selectedFocus = FocusNode(debugLabel: 'Current collection status');
+
+  @override
+  void dispose() {
+    _buttonFocus.dispose();
+    _selectedFocus.dispose();
+    super.dispose();
+  }
 
   String _labelFor(CollectType type) =>
       type == CollectType.none ? '未追' : type.label;
@@ -63,15 +74,26 @@ class _CollectButtonState extends State<CollectButton> {
     );
     return KazumiMenuButton(
       onClose: widget.onClose,
-      onOpen: widget.onOpen,
+      childFocusNode: _buttonFocus,
+      onOpen: () {
+        widget.onOpen?.call();
+        if (isTv)
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _selectedFocus.requestFocus();
+          });
+      },
       crossAxisUnconstrained: false,
       builder: (context, toggle) => widget._isExtended
-          ? FilledButton.icon(
-              onPressed: toggle,
-              icon: Icon(_iconFor(collectType)),
-              label: Text(_labelFor(collectType)),
+          ? TvActionFocus(
+              child: (isTv ? FilledButton.tonalIcon : FilledButton.icon)(
+                focusNode: _buttonFocus,
+                onPressed: toggle,
+                icon: Icon(_iconFor(collectType)),
+                label: Text(_labelFor(collectType)),
+              ),
             )
           : IconButton(
+              focusNode: _buttonFocus,
               onPressed: toggle,
               tooltip: _labelFor(collectType),
               icon: Icon(_iconFor(collectType), color: widget.color),
@@ -81,6 +103,7 @@ class _CollectButtonState extends State<CollectButton> {
           KazumiMenuItem(
             label: _labelFor(type),
             selected: type == collectType,
+            focusNode: isTv && type == collectType ? _selectedFocus : null,
             onPressed: () => _selectType(type),
           ),
       ],

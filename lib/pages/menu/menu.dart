@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/widget/kazumi_menu.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:flutter/services.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
@@ -20,10 +21,15 @@ class ScaffoldMenu extends StatefulWidget {
 
 class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
   final _outletKey = GlobalKey<RouterOutletState>();
+  final _contentFocus = FocusScopeNode(
+    directionalTraversalEdgeBehavior: TraversalEdgeBehavior.parentScope,
+  );
+  final _lastContentFocus = <int, FocusNode>{};
   final _tvMenuFocus = List.generate(6, (_) => FocusNode());
   late int _selectedIndex = menu.indexForPath(widget.location);
   DateTime? _lastExitPromptAt;
   bool _tvSettingsOpen = false;
+  bool _closingMenu = false;
 
   /// The shell sits at the bottom of the root stack and stays mounted while
   /// other pages cover it, so it publishes that state for its subtree.
@@ -32,7 +38,21 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
   @override
   void initState() {
     super.initState();
-    if (isTv) FocusManager.instance.addEarlyKeyEventHandler(_cancelExitOnInput);
+    if (isTv) {
+      FocusManager.instance.addEarlyKeyEventHandler(_cancelExitOnInput);
+      FocusManager.instance.addListener(_rememberContentFocus);
+    }
+  }
+
+  void _rememberContentFocus() {
+    final node = FocusManager.instance.primaryFocus;
+    if (!_isCovered &&
+        node != null &&
+        node is! FocusScopeNode &&
+        node.canRequestFocus &&
+        node.ancestors.contains(_contentFocus)) {
+      _lastContentFocus[_selectedIndex] = node;
+    }
   }
 
   KeyEventResult _cancelExitOnInput(KeyEvent event) {
@@ -64,6 +84,8 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
   void dispose() {
     if (isTv)
       FocusManager.instance.removeEarlyKeyEventHandler(_cancelExitOnInput);
+    if (isTv) FocusManager.instance.removeListener(_rememberContentFocus);
+    _contentFocus.dispose();
     for (final node in _tvMenuFocus) {
       node.dispose();
     }
@@ -127,11 +149,28 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
   }
 
   void _handleSystemBack(BuildContext context) {
+    if (_closingMenu) return;
+    _closingMenu = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _closingMenu = false;
+    });
+    WidgetsBinding.instance.scheduleFrame();
+    if (KazumiMenuButton.closeActiveTvMenu()) return;
+    if (TvSupport.finishInputEditing()) return;
+    if (isTv && ModalRoute.of(context)?.willHandlePopInternally == true) {
+      Navigator.of(context).pop();
+      return;
+    }
     if (_outletKey.currentState?.maybePop() ?? false) {
       _lastExitPromptAt = null;
       return;
     }
 
+    if (isTv && _contentFocus.hasFocus) {
+      _lastExitPromptAt = null;
+      _tvMenuFocus[_selectedIndex + 1].requestFocus();
+      return;
+    }
     if (_selectedIndex != 0) {
       _selectDestination(0);
       return;
@@ -173,10 +212,45 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
   }
 
   Widget _outlet(BuildContext context, {BorderRadius? borderRadius}) {
-    Widget child = NotificationListener<NavigationNotification>(
-      // A non-poppable outlet must not override the shell's PopScope state.
-      onNotification: (notification) => !notification.canHandlePop,
-      child: RouterOutlet(key: _outletKey),
+    Widget child = FocusScope(
+      node: _contentFocus,
+      onKeyEvent: (_, event) {
+        if (!isTv ||
+            event is KeyUpEvent ||
+            event.logicalKey != LogicalKeyboardKey.arrowLeft) {
+          return KeyEventResult.ignored;
+        }
+        final focus = FocusManager.instance.primaryFocus;
+        if (focus == null ||
+            focus.context == null ||
+            focus.context!.findAncestorWidgetOfExactType<EditableText>() !=
+                null) {
+          return KeyEventResult.ignored;
+        }
+        final rect = focus.rect;
+        final hasLeft = _contentFocus.traversalDescendants.any((node) {
+          if (node is FocusScopeNode ||
+              node.hasFocus ||
+              node.context == null ||
+              !node.canRequestFocus ||
+              node.skipTraversal)
+            return false;
+          final other = node.rect;
+          return other.width > 0 &&
+              other.height > 0 &&
+              other.right <= rect.left + 1 &&
+              other.bottom > rect.top &&
+              other.top < rect.bottom;
+        });
+        if (hasLeft) return KeyEventResult.ignored;
+        _tvMenuFocus[_selectedIndex + 1].requestFocus();
+        return KeyEventResult.handled;
+      },
+      child: NotificationListener<NavigationNotification>(
+        // A non-poppable outlet must not override the shell's PopScope state.
+        onNotification: (notification) => !notification.canHandlePop,
+        child: RouterOutlet(key: _outletKey),
+      ),
     );
     if (borderRadius != null) {
       child = ClipRRect(borderRadius: borderRadius, child: child);
@@ -241,6 +315,35 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
             : event.logicalKey == LogicalKeyboardKey.arrowUp
             ? -1
             : 0;
+        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+          final nodes =
+              _contentFocus.traversalDescendants
+                  .where(
+                    (node) =>
+                        node is! FocusScopeNode &&
+                        node.canRequestFocus &&
+                        !node.skipTraversal &&
+                        node.context != null &&
+                        node.rect.width > 0 &&
+                        node.rect.height > 0,
+                  )
+                  .toList()
+                ..sort(
+                  (a, b) => a.rect.top == b.rect.top
+                      ? a.rect.left.compareTo(b.rect.left)
+                      : a.rect.top.compareTo(b.rect.top),
+                );
+          final previous = _lastContentFocus[_selectedIndex];
+          if (previous != null && nodes.contains(previous)) {
+            previous.requestFocus();
+          } else if (nodes.isNotEmpty) {
+            final entry = nodes.where(
+              (node) => node.debugLabel?.endsWith('content entry') == true,
+            );
+            (entry.isNotEmpty ? entry.first : nodes.first).requestFocus();
+          }
+          return KeyEventResult.handled;
+        }
         if (step == 0) return KeyEventResult.ignored;
         final index = _tvMenuFocus.indexWhere((node) => node.hasFocus);
         if (index < 0) return KeyEventResult.ignored;
@@ -249,7 +352,7 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
         return KeyEventResult.handled;
       },
       child: SizedBox(
-        width: 88,
+        width: 72,
         child: Column(
           children: [
             const SizedBox(height: 12),
@@ -265,12 +368,13 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 child: TextButton(
                   focusNode: _tvMenuFocus[index + 1],
-                  onFocusChange: (focused) {
-                    if (focused) _selectDestination(index);
-                  },
                   onPressed: () => _selectDestination(index),
                   style: TextButton.styleFrom(
-                    minimumSize: const Size(76, 58),
+                    minimumSize: const Size(60, 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 6,
+                    ),
                     backgroundColor: index < 4 && index == selectedIndex
                         ? colors.secondaryContainer
                         : null,
@@ -278,9 +382,9 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(icons[index]),
-                      const SizedBox(height: 4),
-                      Text(labels[index]),
+                      Icon(icons[index], size: 20),
+                      const SizedBox(height: 2),
+                      Text(labels[index], maxLines: 1, softWrap: false),
                     ],
                   ),
                 ),

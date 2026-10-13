@@ -36,23 +36,33 @@ final settingsModule = createModule(
         sub
           ..route('/', child: (context, state) => const SettingsIndexPage())
           ..route('/sync', child: (context, state) => const SyncSettingsPage())
-          ..route('/bangumi/',
-              child: (context, state) => const BangumiSyncPage())
-          ..route('/webdav/',
-              child: (context, state) => WebDavSyncPage(
-                    danmakuShieldSync: inject<DanmakuShieldSyncService>(),
-                  ))
-          ..route('/webdav/editor',
-              child: (context, state) => const WebDavServerPage())
+          ..route(
+            '/bangumi/',
+            child: (context, state) => const BangumiSyncPage(),
+          )
+          ..route(
+            '/webdav/',
+            child: (context, state) => WebDavSyncPage(
+              danmakuShieldSync: inject<DanmakuShieldSyncService>(),
+            ),
+          )
+          ..route(
+            '/webdav/editor',
+            child: (context, state) => const WebDavServerPage(),
+          )
           ..route(
             '/update',
             child: (context, state) => const UpdateSettingsPage(),
           )
-          ..route('/storage',
-              child: (context, state) => const StorageSettingsPage())
+          ..route(
+            '/storage',
+            child: (context, state) => const StorageSettingsPage(),
+          )
           ..route('/storage/logs', child: (context, state) => const LogsPage())
-          ..route('/theme',
-              child: (context, state) => const ThemeSettingsPage())
+          ..route(
+            '/theme',
+            child: (context, state) => const ThemeSettingsPage(),
+          )
           ..route(
             '/theme/display',
             child: (context, state) => const SetDisplayMode(),
@@ -61,8 +71,10 @@ final settingsModule = createModule(
             '/keyboard',
             child: (context, state) => const KeyboardSettingsPage(),
           )
-          ..route('/player',
-              child: (context, state) => const PlayerSettingsPage())
+          ..route(
+            '/player',
+            child: (context, state) => const PlayerSettingsPage(),
+          )
           ..route(
             '/player/decoder',
             child: (context, state) => const DecoderSettings(),
@@ -83,6 +95,7 @@ final settingsModule = createModule(
           ..module(aboutModule)
           ..module(pluginModule)
           ..module(danmakuModule)
+          ..module(downloadModule)
           ..route(
             '/download-settings',
             child: (context, state) => const DownloadSettingsPage(),
@@ -99,7 +112,6 @@ final settingsModule = createModule(
           applicationLegalese: 'Kazumi · GNU General Public License v3.0',
         ),
       )
-      ..module(historyModule)
-      ..module(downloadModule);
+      ..module(historyModule);
   },
 );

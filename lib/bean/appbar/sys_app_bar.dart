@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -92,6 +93,8 @@ class SysAppBar extends StatelessWidget implements PreferredSizeWidget {
             DesktopWindowConfig.showWindowButton
         ? 22.0
         : 0.0;
-    return Size.fromHeight((toolbarHeight ?? kToolbarHeight) + topOffset);
+    return Size.fromHeight(
+      (toolbarHeight ?? (isTv ? 44 : kToolbarHeight)) + topOffset,
+    );
   }
 }

@@ -1,6 +1,7 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/material.dart';
 
-const double tonalCardRadius = 24;
+const double tonalCardRadius = isTv ? 12 : 24;
 
 class TonalCard extends StatelessWidget {
   const TonalCard({
@@ -14,9 +15,9 @@ class TonalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(tonalCardRadius),
-        clipBehavior: Clip.antiAlias,
-        child: Padding(padding: padding, child: child),
-      );
+    color: Theme.of(context).colorScheme.surfaceContainerLow,
+    borderRadius: BorderRadius.circular(tonalCardRadius),
+    clipBehavior: Clip.antiAlias,
+    child: Padding(padding: padding, child: child),
+  );
 }

@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_action_focus.dart';
 import 'dart:io';
 import 'package:kazumi/bean/tv/tv_support.dart';
 import 'dart:ui';
@@ -53,6 +54,9 @@ class _InfoPageState extends State<InfoPage>
   );
 
   final _watchFocus = FocusNode(debugLabel: 'TV start watching');
+  FocusNode? _lastInfoAction;
+  late final _tvFocusPolicy = _InfoTvTraversalPolicy(this);
+  bool _requestedWatchFocus = false;
 
   void _startWatching() {
     showAdaptiveBottomSheet<void>(
@@ -235,6 +239,23 @@ class _InfoPageState extends State<InfoPage>
     infoTabController = TabController(length: _infoTabs.length, vsync: this);
     showRating = GStorage.getSetting(SettingsKeys.showRating);
     infoTabController.addListener(onInfoTabChanged);
+    _focusStartWatching();
+  }
+
+  void _focusStartWatching() {
+    if (!isTv || _requestedWatchFocus || _isShowingBangumiInfoSkeleton) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(Duration.zero, () {
+        if (!mounted ||
+            _requestedWatchFocus ||
+            ModalRoute.of(context)?.isCurrent != true ||
+            _watchFocus.context == null ||
+            !_watchFocus.canRequestFocus)
+          return;
+        _requestedWatchFocus = true;
+        _watchFocus.requestFocus();
+      });
+    });
   }
 
   void onInfoTabChanged() {
@@ -315,6 +336,7 @@ class _InfoPageState extends State<InfoPage>
         setState(() {
           _showBangumiInfoSkeleton = false;
         });
+        _focusStartWatching();
       }
     }
   }
@@ -330,7 +352,11 @@ class _InfoPageState extends State<InfoPage>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => !isTv
+      ? _buildPage(context)
+      : FocusTraversalGroup(policy: _tvFocusPolicy, child: _buildPage(context));
+
+  Widget _buildPage(BuildContext context) {
     final showWindowButton = DesktopWindowConfig.showWindowButton;
     final topOffset = Platform.isMacOS && showWindowButton ? 22.0 : 0.0;
     return Scaffold(
@@ -380,11 +406,14 @@ class _InfoPageState extends State<InfoPage>
                     CloseButton(onPressed: () => windowManager.close()),
                   SizedBox(width: 8),
                 ],
-                toolbarHeight: kToolbarHeight + topOffset,
+                toolbarHeight: (isTv ? 44 : kToolbarHeight) + topOffset,
                 stretch: true,
                 centerTitle: false,
                 expandedHeight:
-                    308 + kTextTabBarHeight + kToolbarHeight + topOffset,
+                    (isTv ? 278 : 308) +
+                    kTextTabBarHeight +
+                    (isTv ? 44 : kToolbarHeight) +
+                    topOffset,
                 collapsedHeight:
                     kTextTabBarHeight +
                     kToolbarHeight +
@@ -428,14 +457,16 @@ class _InfoPageState extends State<InfoPage>
                                     isLoading: showBangumiInfoSkeleton,
                                     showRating: showRating,
                                     primaryAction: isTv
-                                        ? FilledButton.icon(
-                                            focusNode: _watchFocus,
-                                            autofocus: true,
-                                            onPressed: _startWatching,
-                                            icon: const Icon(
-                                              Icons.play_arrow_rounded,
+                                        ? TvActionFocus(
+                                            child: FilledButton.tonalIcon(
+                                              focusNode: _watchFocus,
+                                              autofocus: false,
+                                              onPressed: _startWatching,
+                                              icon: const Icon(
+                                                Icons.play_arrow_rounded,
+                                              ),
+                                              label: const Text('开始观看'),
                                             ),
-                                            label: const Text('开始观看'),
                                           )
                                         : null,
                                   ),
@@ -601,5 +632,43 @@ class _InfoHeaderBackground extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _InfoTvTraversalPolicy extends ReadingOrderTraversalPolicy {
+  _InfoTvTraversalPolicy(this.page);
+  final _InfoPageState page;
+  FocusNode get watch => page._watchFocus;
+  @override
+  bool inDirection(FocusNode node, TraversalDirection direction) {
+    final action = node == watch || node.debugLabel == 'TV collection action';
+    if (action && direction == TraversalDirection.right)
+      page._lastInfoAction = node;
+    if (!action &&
+        node.context?.findAncestorWidgetOfExactType<TabBar>() != null &&
+        direction == TraversalDirection.left &&
+        page._lastInfoAction?.context != null) {
+      page._lastInfoAction!.requestFocus();
+      return true;
+    }
+    if (action && direction == TraversalDirection.down) {
+      if (node == watch) return super.inDirection(node, direction);
+      final tabs =
+          node.nearestScope!.traversalDescendants
+              .where(
+                (other) =>
+                    other.canRequestFocus &&
+                    other.context?.findAncestorWidgetOfExactType<TabBar>() !=
+                        null,
+              )
+              .toList()
+            ..sort((a, b) => a.rect.left.compareTo(b.rect.left));
+      if (tabs.isNotEmpty) {
+        page._lastInfoAction = node;
+        tabs.first.requestFocus();
+        return true;
+      }
+    }
+    return super.inDirection(node, direction);
   }
 }

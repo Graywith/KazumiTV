@@ -11,11 +11,13 @@ class BangumiCardV extends StatelessWidget {
     required this.bangumiItem,
     this.canTap = true,
     this.enableHero = true,
+    this.focusNode,
   });
 
   final BangumiItem bangumiItem;
   final bool canTap;
   final bool enableHero;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -25,11 +27,10 @@ class BangumiCardV extends StatelessWidget {
       margin: EdgeInsets.zero,
       child: GestureDetector(
         child: InkWell(
+          focusNode: focusNode,
           onTap: () {
             if (!canTap) {
-              KazumiDialog.showToast(
-                message: '编辑模式',
-              );
+              KazumiDialog.showToast(message: '编辑模式');
               return;
             }
             context.pushNamed('/info/', arguments: bangumiItem);
@@ -39,29 +40,31 @@ class BangumiCardV extends StatelessWidget {
             children: [
               AspectRatio(
                 aspectRatio: 0.65,
-                child: LayoutBuilder(builder: (context, boxConstraints) {
-                  final double maxWidth = boxConstraints.maxWidth;
-                  final double maxHeight = boxConstraints.maxHeight;
-                  return enableHero
-                      ? Hero(
-                          transitionOnUserGestures: true,
-                          flightShuttleBuilder:
-                              NetworkImgLayer.heroFlightShuttleBuilder,
-                          tag: bangumiItem.id,
-                          child: NetworkImgLayer(
+                child: LayoutBuilder(
+                  builder: (context, boxConstraints) {
+                    final double maxWidth = boxConstraints.maxWidth;
+                    final double maxHeight = boxConstraints.maxHeight;
+                    return enableHero
+                        ? Hero(
+                            transitionOnUserGestures: true,
+                            flightShuttleBuilder:
+                                NetworkImgLayer.heroFlightShuttleBuilder,
+                            tag: bangumiItem.id,
+                            child: NetworkImgLayer(
+                              src: bangumiItem.images['large'] ?? '',
+                              width: maxWidth,
+                              height: maxHeight,
+                            ),
+                          )
+                        : NetworkImgLayer(
                             src: bangumiItem.images['large'] ?? '',
                             width: maxWidth,
                             height: maxHeight,
-                          ),
-                        )
-                      : NetworkImgLayer(
-                          src: bangumiItem.images['large'] ?? '',
-                          width: maxWidth,
-                          height: maxHeight,
-                        );
-                }),
+                          );
+                  },
+                ),
               ),
-              BangumiContent(bangumiItem: bangumiItem)
+              BangumiContent(bangumiItem: bangumiItem),
             ],
           ),
         ),
@@ -82,30 +85,31 @@ class BangumiContent extends StatelessWidget {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(5, 3, 5, 1),
-        child: LayoutBuilder(builder: (context, constraints) {
-          final style = DefaultTextStyle.of(context).style.copyWith(
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.3,
-              );
-          final textScaler = ts.clamp(maxScaleFactor: 1.1);
-          final painter = TextPainter(
-            text: TextSpan(text: bangumiItem.nameCn, style: style),
-            textDirection: Directionality.of(context),
-            textScaler: textScaler,
-          );
-          final lines = (constraints.maxHeight / painter.preferredLineHeight)
-              .floor()
-              .clamp(1, 3);
-          painter.dispose();
-          return Text(
-            bangumiItem.nameCn,
-            textAlign: TextAlign.start,
-            style: style,
-            textScaler: textScaler,
-            maxLines: lines,
-            overflow: TextOverflow.ellipsis,
-          );
-        }),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final style = DefaultTextStyle.of(
+              context,
+            ).style.copyWith(fontWeight: FontWeight.w500, letterSpacing: 0.3);
+            final textScaler = ts.clamp(maxScaleFactor: 1.1);
+            final painter = TextPainter(
+              text: TextSpan(text: bangumiItem.nameCn, style: style),
+              textDirection: Directionality.of(context),
+              textScaler: textScaler,
+            );
+            final lines = (constraints.maxHeight / painter.preferredLineHeight)
+                .floor()
+                .clamp(1, 3);
+            painter.dispose();
+            return Text(
+              bangumiItem.nameCn,
+              textAlign: TextAlign.start,
+              style: style,
+              textScaler: textScaler,
+              maxLines: lines,
+              overflow: TextOverflow.ellipsis,
+            );
+          },
+        ),
       ),
     );
   }

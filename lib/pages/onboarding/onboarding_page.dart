@@ -193,8 +193,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
         );
         final primary = FilledButton.icon(
           style: FilledButton.styleFrom(
-            minimumSize: const Size(176, 56),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            minimumSize: Size(isTv ? 120 : 176, isTv ? 36 : 56),
+            padding: EdgeInsets.symmetric(
+              horizontal: isTv ? 14 : 24,
+              vertical: isTv ? 8 : 16,
+            ),
             textStyle: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -211,7 +214,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           label: Text(_installingBundled ? '正在准备' : _primaryLabel),
         );
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: EdgeInsets.symmetric(vertical: isTv ? 6 : 12),
           child: stacked
               ? Column(
                   mainAxisSize: MainAxisSize.min,
@@ -238,7 +241,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       if (!didPop) unawaited(_navigate(forward: false));
     },
     child: Scaffold(
-      appBar: const SysAppBar(),
+      appBar: isTv ? null : const SysAppBar(),
       body: SafeArea(
         top: false,
         child: Center(
@@ -246,7 +249,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
             constraints: const BoxConstraints(maxWidth: 1184),
             child: Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: MediaQuery.sizeOf(context).width < 600 ? 20 : 32,
+                horizontal: isTv
+                    ? 16
+                    : MediaQuery.sizeOf(context).width < 600
+                    ? 20
+                    : 32,
               ),
               child: Column(
                 children: [
@@ -319,7 +326,7 @@ class _OnboardingProgress extends StatelessWidget {
       liveRegion: true,
       child: ExcludeSemantics(
         child: Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 12),
+          padding: EdgeInsets.only(top: isTv ? 4 : 8, bottom: isTv ? 6 : 12),
           child: Column(
             children: [
               Row(
@@ -341,7 +348,7 @@ class _OnboardingProgress extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: isTv ? 6 : 12),
               Row(
                 children: [
                   for (var i = 0; i < labels.length; i++) ...[
@@ -352,7 +359,7 @@ class _OnboardingProgress extends StatelessWidget {
                             ? Duration.zero
                             : const Duration(milliseconds: 250),
                         curve: Curves.easeInOutCubicEmphasized,
-                        height: 6,
+                        height: isTv ? 3 : 6,
                         decoration: BoxDecoration(
                           color: i <= currentIndex
                               ? colors.primary

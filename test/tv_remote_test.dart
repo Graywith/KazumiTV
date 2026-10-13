@@ -1,3 +1,4 @@
+import 'tv_focus_audit_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,6 +39,47 @@ class _Player implements PlayerController {
 }
 
 void main() {
+  testWidgets(
+    'Audit player control bar directions with global TV focus support',
+    (tester) async {
+      final scope = FocusNode();
+      final player = _Player();
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (_, child) => TvSupport(child: child!),
+          home: Scaffold(
+            body: Focus(
+              focusNode: scope,
+              autofocus: true,
+              child: TvPlayerControls(
+                player: player,
+                scope: scope,
+                onEpisode: (_) async {},
+                onBack: () {},
+                onDanmakuSearch: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+      await tester.pumpAndSettle();
+      await auditKeys(tester, '播放器/控制栏', [
+        LogicalKeyboardKey.arrowRight,
+        LogicalKeyboardKey.arrowRight,
+        LogicalKeyboardKey.arrowLeft,
+        LogicalKeyboardKey.arrowUp,
+        LogicalKeyboardKey.arrowLeft,
+        LogicalKeyboardKey.arrowRight,
+        LogicalKeyboardKey.arrowDown,
+        LogicalKeyboardKey.arrowRight,
+      ]);
+      await tester.pumpWidget(const SizedBox());
+      scope.dispose();
+    },
+  );
+
   testWidgets('TV remote activates danmaku search from control bar', (
     tester,
   ) async {
@@ -171,9 +213,11 @@ void main() {
     expect(button.hasFocus, isTrue);
     input.requestFocus();
     await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
-    expect(input.hasFocus, isFalse);
+    expect(input.hasFocus, isTrue);
     expect(find.text('save'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();

@@ -2,8 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # Next deliveries must increment both version and build number.
-version=${1:-0.2.1}
-build_number=${2:-20319}
+version=${1:-0.3.7}
+build_number=${2:-20331}
 abi=${3:-armeabi-v7a}
 if [[ "$abi" == all ]]; then
   bash "$0" "$version" "$build_number" arm64-v8a
@@ -36,12 +36,3 @@ cp "$output/app-$abi-release.apk" "$output/$name"
 mkdir -p build/tv-updates
 cp "$output/$name" "build/tv-updates/$name"
 ls -lh "$output/$name"
-if [[ "$abi" == armeabi-v7a ]]; then
-  icloud_downloads="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads"
-  if [[ -d "$icloud_downloads" ]]; then
-    cp "$output/$name" "$icloud_downloads/$name"
-    echo "已复制到 iCloud 云盘：$icloud_downloads/$name"
-  else
-    echo "未找到 iCloud 下载目录，APK 保留在 $output/$name" >&2
-  fi
-fi

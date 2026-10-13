@@ -290,7 +290,7 @@ class _PluginViewPageState extends State<PluginViewPage> {
                         description: '管理你的番剧来源。拖动调整搜索顺序，点按规则进行编辑。',
                         icon: Icons.extension_rounded,
                         actions: [
-                          FilledButton.icon(
+                          (isTv ? FilledButton.tonalIcon : FilledButton.icon)(
                             style: FilledButton.styleFrom(
                               minimumSize: const Size(120, 48),
                             ),
