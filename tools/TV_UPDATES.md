@@ -1,11 +1,5 @@
 # TV 构建与更新
 
-## 本地图标
-
-`.local/tv-icons/res/` 存放个人使用的 Android 图标资源，已被 Git 忽略。按 Android 资源目录结构放置 launcher 图标和 TV banner；本地 debug、profile、release 构建会优先使用这些资源。目录不存在时使用仓库内的公开图标。
-
-公开图标仍保留在 `android/app/src/main/res/`，无需修改或取消跟踪。
-
 ## 构建
 
 ```bash
