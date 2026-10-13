@@ -2,8 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # Next deliveries must increment both version and build number.
-version=${1:-0.3.7}
-build_number=${2:-20331}
+version=${1:-0.3.19}
+build_number=${2:-20343}
 abi=${3:-armeabi-v7a}
 if [[ "$abi" == all ]]; then
   bash "$0" "$version" "$build_number" arm64-v8a
@@ -15,18 +15,9 @@ case "$abi" in
   armeabi-v7a) target=android-arm ;;
   *) echo "Unsupported ABI: $abi" >&2; exit 1 ;;
 esac
-lan_ip=$(ipconfig getifaddr en0 || ipconfig getifaddr en1)
-update_base=${TV_UPDATE_BASE:-http://$lan_ip:18080}
-# Private API credentials are never committed or printed.
-defines_file=${TV_DART_DEFINES_FILE:-.tv-secrets.json}
-private_defines=()
-if [[ -f "$defines_file" ]]; then
-  private_defines+=("--dart-define-from-file=$defines_file")
-else
-  echo "提示：未配置弹幕 API 凭证；可在 .tv-secrets.json 配置后重新构建。" >&2
-fi
+update_base=${TV_UPDATE_BASE:-}
+# TV credentials are configured on the device, never bundled into the APK.
 flutter build apk --release --split-per-abi \
-  ${private_defines[@]+"${private_defines[@]}"} \
   --target-platform "$target" --build-name="$version" --build-number="$build_number" \
   --dart-define=KAZUMI_TV=true --dart-define=FLUTTER_BUILD_NAME="$version" \
   --dart-define=TV_UPDATE_ABI="$abi" --dart-define=TV_UPDATE_BASE="$update_base"

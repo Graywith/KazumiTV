@@ -258,6 +258,17 @@ class SettingsKeys {
     true,
     group: SettingGroup.proxy,
   );
+  // Device-local service settings; credentials are excluded from reset groups.
+  static const dandanAppId = SettingKey<String>(
+    'dandanAppId',
+    '',
+    group: SettingGroup.misc,
+  );
+  static const dandanAppSecret = SettingKey<String>(
+    'dandanAppSecret',
+    '',
+    group: SettingGroup.misc,
+  );
   static const tvUpdateServer = SettingKey<String>(
     'tvUpdateServer',
     '',

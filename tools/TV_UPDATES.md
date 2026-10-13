@@ -18,17 +18,12 @@ python3 tools/tv_update_server.py
 
 服务监听 `0.0.0.0:18080`，读取 `build/tv-updates/` 中各 ABI 的最新 APK。电脑与设备须处于可互通的局域网，更新时保持服务运行。
 
-应用「设置 → 网络设置 → TV 更新服务器」填写 `http://<电脑局域网 IP>:18080`，在「关于 → 检查更新」下载安装。首次安装使用 adb；系统提示时允许安装未知应用。
+应用「设置 → 更新设置 → TV 更新服务器」填写 `http://<电脑局域网 IP>:18080`，在「关于 → 检查更新」下载安装。首次安装使用 adb；系统提示时允许安装未知应用。
 
-构建脚本自动探测电脑局域网 IP，可通过 `TV_UPDATE_BASE` 指定默认地址。模拟器也可使用 `http://10.0.2.2:18080`。
+TV 更新服务器默认留空，在设备上填写。构建时可通过 `TV_UPDATE_BASE` 指定默认地址。
 
 ## 弹幕凭证
 
-将 `tools/tv-secrets.example.json` 复制为 `.tv-secrets.json`，填写：
+电视「设置 → 弹幕设置 → 弹幕服务」使用弹弹play官方接口。
 
-- `DANDANAPI_APPID`：AppId
-- `DANDANAPI_KEY`：AppSecret
-
-构建脚本自动读取，也可通过 `TV_DART_DEFINES_FILE` 指定私有文件。不要提交凭证。
-
-申请入口：[弹弹play开发者中心](https://dev.dandanplay.com/)。
+填写 App ID 和 App Secret。点击「保存并测试」后生效，不需重新构建。TV 构建脚本不读取或打包弹幕凭证。

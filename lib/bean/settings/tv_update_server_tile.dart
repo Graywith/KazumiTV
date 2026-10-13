@@ -24,7 +24,7 @@ class _TvUpdateServerTileState extends State<TvUpdateServerTile> {
           controller: input,
           keyboardType: TextInputType.url,
           decoration: const InputDecoration(
-            hintText: 'http://192.168.5.21:18080',
+            hintText: 'http://服务器IP:18080',
           ),
         ),
         actions: [
@@ -36,15 +36,16 @@ class _TvUpdateServerTileState extends State<TvUpdateServerTile> {
             onPressed: () {
               final text = input.text.trim().replaceFirst(RegExp(r'/+$'), '');
               final uri = Uri.tryParse(text);
-              if (uri == null ||
-                  !['http', 'https'].contains(uri.scheme) ||
-                  uri.host.isEmpty ||
-                  uri.userInfo.isNotEmpty ||
-                  uri.hasQuery ||
-                  uri.hasFragment ||
-                  uri.path.isNotEmpty) {
+              if (text.isNotEmpty &&
+                  (uri == null ||
+                      !['http', 'https'].contains(uri.scheme) ||
+                      uri.host.isEmpty ||
+                      uri.userInfo.isNotEmpty ||
+                      uri.hasQuery ||
+                      uri.hasFragment ||
+                      uri.path.isNotEmpty)) {
                 KazumiDialog.showToast(
-                  message: '请输入服务器地址，例如 http://192.168.5.21:18080',
+                  message: '请输入服务器地址，例如 http://服务器IP:18080',
                 );
                 return;
               }
@@ -70,7 +71,7 @@ class _TvUpdateServerTileState extends State<TvUpdateServerTile> {
     title: const Text('TV 更新服务器'),
     description: Text(
       GStorage.getSetting(SettingsKeys.tvUpdateServer).isEmpty
-          ? tvUpdateBase
+          ? (tvUpdateBase.isEmpty ? '未配置' : tvUpdateBase)
           : GStorage.getSetting(SettingsKeys.tvUpdateServer),
     ),
     onPressed: (_) => _editUpdateServer(),

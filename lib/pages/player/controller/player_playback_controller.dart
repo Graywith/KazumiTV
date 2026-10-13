@@ -1,7 +1,10 @@
 // ignore_for_file: library_private_types_in_public_api
 
 import 'dart:io';
+import 'package:kazumi/services/player/seek_position_tracker.dart';
 import 'dart:typed_data';
+import 'package:kazumi/bean/tv/tv_support.dart';
+import 'package:kazumi/services/player/android_playback_output.dart';
 
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
@@ -86,6 +89,7 @@ abstract class _PlayerPlaybackController with Store {
   bool playerDebugMode = false;
   int buttonSkipTime = 80;
   int arrowKeySkipTime = 10;
+  final seekPosition = SeekPositionTracker();
 
   /// 历史记录传入的 offset
   int startOffset = 0;
@@ -141,6 +145,7 @@ abstract class _PlayerPlaybackController with Store {
     loading = true;
     isBuffering = true;
     currentPosition = Duration.zero;
+    seekPosition.clear();
     buffer = Duration.zero;
     duration = Duration.zero;
     completed = false;
@@ -171,8 +176,10 @@ abstract class _PlayerPlaybackController with Store {
       await player.play();
       startOffset = 0;
     } catch (e) {
-      KazumiLogger()
-          .w('PlayerController: failed to restart from beginning', error: e);
+      KazumiLogger().w(
+        'PlayerController: failed to restart from beginning',
+        error: e,
+      );
     }
   }
 
@@ -278,8 +285,9 @@ abstract class _PlayerPlaybackController with Store {
       GStorage.getSetting(SettingsKeys.defaultSuperResolutionMode),
     );
     hAenable = GStorage.getSetting(SettingsKeys.hAenable);
-    androidEnableOpenSLES =
-        GStorage.getSetting(SettingsKeys.androidEnableOpenSLES);
+    androidEnableOpenSLES = GStorage.getSetting(
+      SettingsKeys.androidEnableOpenSLES,
+    );
     hardwareDecoder = GStorage.getSetting(SettingsKeys.hardwareDecoder);
     autoPlay = GStorage.getSetting(SettingsKeys.autoPlay);
     playerDebugMode = GStorage.getSetting(SettingsKeys.playerDebugMode);
@@ -325,6 +333,17 @@ abstract class _PlayerPlaybackController with Store {
         return await _discardIfNotCurrent(candidate);
       }
       await cachePolicy.apply();
+      if (Platform.isAndroid) {
+        for (final entry in androidPlaybackCache(
+          isTv: isTv,
+          isLocalPlayback: isLocalPlayback(),
+        ).entries) {
+          await pp.setProperty(entry.key, entry.value);
+          if (!isCurrentPlayer(player)) {
+            return await _discardIfNotCurrent(candidate);
+          }
+        }
+      }
       if (!isCurrentPlayer(player)) {
         return await _discardIfNotCurrent(candidate);
       }
@@ -337,11 +356,13 @@ abstract class _PlayerPlaybackController with Store {
         if (!isCurrentPlayer(player)) {
           return await _discardIfNotCurrent(candidate);
         }
-        if (androidEnableOpenSLES) {
-          await pp.setProperty("ao", "opensles");
-        } else {
-          await pp.setProperty("ao", "audiotrack");
-        }
+        await pp.setProperty(
+          'ao',
+          androidPlaybackAudioOutput(
+            isTv: isTv,
+            lowLatency: androidEnableOpenSLES,
+          ),
+        );
         if (!isCurrentPlayer(player)) {
           return await _discardIfNotCurrent(candidate);
         }
@@ -369,35 +390,29 @@ abstract class _PlayerPlaybackController with Store {
         }
       }
 
-      await player.setAudioTrack(
-        AudioTrack.auto(),
-      );
+      await player.setAudioTrack(AudioTrack.auto());
       if (!isCurrentPlayer(player)) {
         return await _discardIfNotCurrent(candidate);
       }
 
       String? videoRenderer;
       if (Platform.isAndroid) {
-        final String androidVideoRenderer =
-            GStorage.getSetting(SettingsKeys.androidVideoRenderer);
+        final String androidVideoRenderer = GStorage.getSetting(
+          SettingsKeys.androidVideoRenderer,
+        );
 
-        if (androidVideoRenderer == 'auto') {
-          // Android 14 及以上使用基于 Vulkan 的 MPV GPU-NEXT 视频输出，着色器性能更好
-          // GPU-NEXT 需要 Vulkan 1.2 支持
-          // 避免 Android 13 及以下设备上部分机型 Vulkan 支持不佳导致的黑屏问题
-          final int androidSdkVersion =
-              await PlatformEnvironmentService.getAndroidSdkVersion();
-          if (!isCurrentPlayer(player)) {
-            return await _discardIfNotCurrent(candidate);
-          }
-          if (androidSdkVersion >= 34) {
-            videoRenderer = 'gpu-next';
-          } else {
-            videoRenderer = 'gpu';
-          }
-        } else {
-          videoRenderer = androidVideoRenderer;
+        // The SDK lookup is only needed for the phone's automatic GPU path.
+        final sdkVersion = !isTv && androidVideoRenderer == 'auto'
+            ? await PlatformEnvironmentService.getAndroidSdkVersion()
+            : 0;
+        if (!isCurrentPlayer(player)) {
+          return await _discardIfNotCurrent(candidate);
         }
+        videoRenderer = androidPlaybackRenderer(
+          isTv: isTv,
+          selected: androidVideoRenderer,
+          sdkVersion: sdkVersion,
+        );
       }
 
       if (videoRenderer == 'mediacodec_embed') {
@@ -430,16 +445,21 @@ abstract class _PlayerPlaybackController with Store {
           );
           if (actionableMessage != null) {
             KazumiDialog.showToast(
-                message: actionableMessage, showActionButton: true);
+              message: actionableMessage,
+              showActionButton: true,
+            );
           } else if (showPlayerError) {
             KazumiDialog.showToast(
-                message: '播放器内部错误 ${event.toString()} ${videoUrl()}',
-                duration: const Duration(seconds: 5),
-                showActionButton: true);
+              message: '播放器内部错误 ${event.toString()} ${videoUrl()}',
+              duration: const Duration(seconds: 5),
+              showActionButton: true,
+            );
           }
         }
-        KazumiLogger().e('PlayerController: Player intent error ${videoUrl()}',
-            error: event);
+        KazumiLogger().e(
+          'PlayerController: Player intent error ${videoUrl()}',
+          error: event,
+        );
       });
 
       if (superResolutionMode != SuperResolutionMode.off) {
@@ -457,8 +477,11 @@ abstract class _PlayerPlaybackController with Store {
       }
 
       await player.open(
-        Media(videoUrl(),
-            start: Duration(seconds: offset), httpHeaders: httpHeaders),
+        Media(
+          videoUrl(),
+          start: Duration(seconds: offset),
+          httpHeaders: httpHeaders,
+        ),
         play: autoPlay,
       );
       if (!isCurrentPlayer(player)) {
@@ -529,8 +552,10 @@ abstract class _PlayerPlaybackController with Store {
     try {
       mediaPlayer!.setRate(playerSpeed);
     } catch (e) {
-      KazumiLogger()
-          .e('PlayerController: failed to set playback speed', error: e);
+      KazumiLogger().e(
+        'PlayerController: failed to set playback speed',
+        error: e,
+      );
     }
   }
 
@@ -589,8 +614,9 @@ abstract class _PlayerPlaybackController with Store {
     if (isBuffering != state.buffering) {
       isBuffering = state.buffering;
     }
-    if (currentPosition != state.position) {
-      currentPosition = state.position;
+    final position = seekPosition.position(state.position);
+    if (currentPosition != position) {
+      currentPosition = position;
     }
     if (buffer != state.buffer) {
       buffer = state.buffer;

@@ -2,10 +2,7 @@ class DanmakuEpisode {
   int episodeId;
   String episodeTitle;
 
-  DanmakuEpisode({
-    required this.episodeId,
-    required this.episodeTitle,
-  });
+  DanmakuEpisode({required this.episodeId, required this.episodeTitle});
 
   factory DanmakuEpisode.fromJson(Map<String, dynamic> json) {
     return DanmakuEpisode(
@@ -15,10 +12,7 @@ class DanmakuEpisode {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'episodeId': episodeId,
-      'episodeTitle': episodeTitle,
-    };
+    return {'episodeId': episodeId, 'episodeTitle': episodeTitle};
   }
 }
 
@@ -39,8 +33,9 @@ class DanmakuEpisodeResponse {
 
   factory DanmakuEpisodeResponse.fromJson(Map<String, dynamic> json) {
     var list = json['bangumi']['episodes'] as List;
-    List<DanmakuEpisode> episodeList =
-        list.map((i) => DanmakuEpisode.fromJson(i)).toList();
+    List<DanmakuEpisode> episodeList = list
+        .map((i) => DanmakuEpisode.fromJson(i))
+        .toList();
 
     return DanmakuEpisodeResponse(
       bangumiId: json['bangumi']['animeId'],

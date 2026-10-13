@@ -2,9 +2,12 @@ import 'tv_focus_audit_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobx/mobx.dart';
 import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:kazumi/pages/player/controller/player_playback_controller.dart';
 import 'package:kazumi/pages/player/player_controller.dart';
+import 'package:kazumi/pages/player/controller/player_debug_controller.dart';
+import 'package:kazumi/pages/player/controller/player_danmaku_controller.dart';
 import 'package:kazumi/pages/player/tv_player_controls.dart';
 import 'package:kazumi/pages/video/video_side_panel.dart';
 import 'package:kazumi/modules/roads/road_module.dart';
@@ -12,23 +15,49 @@ import 'package:kazumi/pages/video/episode_selection_panel.dart';
 
 class _Playback implements PlayerPlaybackController {
   @override
-  Duration get duration => const Duration(minutes: 20);
+  int arrowKeySkipTime = 5;
   @override
-  Duration get currentPosition => const Duration(minutes: 1);
+  Duration get duration => const Duration(minutes: 20);
+  final _position = Observable(const Duration(minutes: 1));
+  @override
+  Duration get currentPosition => _position.value;
+  @override
+  set currentPosition(Duration value) =>
+      runInAction(() => _position.value = value);
   @override
   bool get playing => true;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _Danmaku implements PlayerDanmakuController {
+  final enabled = Observable(false);
+  @override
+  bool get danmakuOn => enabled.value;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _Player implements PlayerController {
+  @override
+  final _Danmaku danmaku = _Danmaku();
+  @override
+  final debug = PlayerDebugController();
   final offsets = <Duration>[];
   int toggles = 0;
   @override
-  final PlayerPlaybackController playback = _Playback();
+  final _Playback playback = _Playback();
   @override
-  Future<void> seekBy(Duration offset, {bool enableSync = true}) async =>
-      offsets.add(offset);
+  Future<void> seekBy(Duration offset, {bool enableSync = true}) async {
+    offsets.add(offset);
+    playback.currentPosition = Duration(
+      milliseconds: (playback.currentPosition + offset).inMilliseconds.clamp(
+        0,
+        playback.duration.inMilliseconds,
+      ),
+    );
+  }
+
   @override
   Future<void> playOrPause() async {
     toggles++;
@@ -111,10 +140,195 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pump();
     expect(searches, 1);
-    expect(find.text('弹幕检索'), findsNothing);
+    expect(find.text('搜索弹幕'), findsNothing);
     await tester.pumpWidget(const SizedBox());
     scope.dispose();
   });
+
+  testWidgets('TV remote opens playback information and hides controls', (
+    tester,
+  ) async {
+    final player = _Player();
+    final scope = FocusNode();
+    var opens = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (_, child) => TvSupport(child: child!),
+        home: Scaffold(
+          body: Focus(
+            focusNode: scope,
+            autofocus: true,
+            child: TvPlayerControls(
+              player: player,
+              scope: scope,
+              onEpisode: (_) async {},
+              onBack: () {},
+              onEpisodes: () {},
+              onDanmakuSearch: () {},
+              onVideoInfo: () => opens++,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 3; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+    }
+    expect(FocusManager.instance.primaryFocus!.debugLabel, 'TV playback info');
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(opens, 1);
+    expect(find.text('播放信息'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    scope.dispose();
+  });
+
+  testWidgets(
+    'Seven controls follow requested order with play exactly centered',
+    (tester) async {
+      final scope = FocusNode();
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (_, child) => TvSupport(child: child!),
+          home: Scaffold(
+            body: Focus(
+              focusNode: scope,
+              autofocus: true,
+              child: TvPlayerControls(
+                player: _Player(),
+                scope: scope,
+                onEpisode: (_) async {},
+                onBack: () {},
+                onEpisodes: () {},
+                onVideoInfo: () {},
+                onToggleDanmaku: () {},
+                onDanmakuSearch: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+      await tester.pumpAndSettle();
+      final labels = ['播放信息', '选集', '上一集', '暂停', '下一集', '弹幕：关', '搜索弹幕'];
+      final xs = [
+        for (final label in labels) tester.getCenter(find.text(label)).dx,
+      ];
+      expect(xs, orderedEquals([...xs]..sort()));
+      final playRect = tester.getRect(
+        find.ancestor(of: find.text('暂停'), matching: find.byType(FilledButton)),
+      );
+      final screenRect = tester.getRect(find.byType(Scaffold));
+      expect(playRect.center.dx, screenRect.center.dx);
+      for (var i = 0; i < 3; i++)
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(
+        FocusManager.instance.primaryFocus!.debugLabel,
+        'TV playback info',
+      );
+      for (final label in labels.skip(1)) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(Focus.of(tester.element(find.text(label))).hasFocus, isTrue);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      scope.dispose();
+    },
+  );
+
+  testWidgets('TV remote toggles danmaku using existing callback', (
+    tester,
+  ) async {
+    final scope = FocusNode();
+    final player = _Player();
+    var toggles = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (_, child) => TvSupport(child: child!),
+        home: Scaffold(
+          body: Focus(
+            focusNode: scope,
+            autofocus: true,
+            child: TvPlayerControls(
+              player: player,
+              scope: scope,
+              onEpisode: (_) async {},
+              onBack: () {},
+              onDanmakuSearch: () {},
+              onEpisodes: () {},
+              onVideoInfo: () {},
+              onToggleDanmaku: () {
+                toggles++;
+                runInAction(
+                  () =>
+                      player.danmaku.enabled.value = !player.danmaku.danmakuOn,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 2; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+    }
+    expect(FocusManager.instance.primaryFocus!.debugLabel, 'TV danmaku toggle');
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(toggles, 1);
+    expect(find.text('弹幕：开'), findsOneWidget);
+    expect(find.text('弹幕：关'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(toggles, 2);
+    expect(find.text('弹幕：关'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    scope.dispose();
+  });
+
+  testWidgets(
+    'Playback controls show actual measured resolution and available video bitrate',
+    (tester) async {
+      final scope = FocusNode();
+      final player = _Player();
+      player.debug.playerWidth = 1920;
+      player.debug.playerHeight = 1080;
+      player.debug.playerVideoBitrate = '3500000';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Focus(
+              focusNode: scope,
+              autofocus: true,
+              child: TvPlayerControls(
+                player: player,
+                scope: scope,
+                onEpisode: (_) async {},
+                onBack: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+      await tester.pumpAndSettle();
+      expect(find.text('实测 1920×1080 · 3.5 Mbps'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      scope.dispose();
+    },
+  );
 
   testWidgets('TV sliders use left/right for value and up/down to leave', (
     tester,
@@ -293,11 +507,12 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       expect(player.offsets, [
-        const Duration(seconds: -10),
-        const Duration(seconds: 10),
+        const Duration(seconds: -5),
+        const Duration(seconds: 5),
       ]);
-      await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
+      expect(FocusManager.instance.primaryFocus!.debugLabel, 'TV progress');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       expect(player.toggles, 1);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
@@ -313,7 +528,7 @@ void main() {
       expect(player.offsets.length, before);
       expect(player.toggles, 1);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-      expect(player.offsets.last, const Duration(seconds: -10));
+      expect(player.offsets.last, const Duration(seconds: -5));
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       expect(player.offsets.length, before + 1);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
@@ -326,8 +541,8 @@ void main() {
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.mediaPlayPause);
       expect(player.toggles, 3);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
       expect(panel.currentState!.isOpen, isTrue);
@@ -342,7 +557,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(panel.currentState!.isOpen, isFalse);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      expect(player.offsets.last, const Duration(seconds: 10));
+      expect(player.offsets.last, const Duration(seconds: 5));
       await tester.pumpWidget(const SizedBox());
       scope.dispose();
       staleFocus.dispose();
@@ -394,7 +609,57 @@ void main() {
   });
 
   testWidgets(
-    'TV player seeks 10s, activates controls, hides and handles Back',
+    'TV progress uses 5s steps, clamps start and keeps track bounds',
+    (tester) async {
+      final player = _Player();
+      player.playback.currentPosition = Duration.zero;
+      final scope = FocusNode();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Focus(
+              focusNode: scope,
+              autofocus: true,
+              child: TvPlayerControls(
+                player: player,
+                scope: scope,
+                onEpisode: (_) async {},
+                onBack: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      for (final entry in [
+        (LogicalKeyboardKey.arrowRight, 5),
+        (LogicalKeyboardKey.arrowRight, 10),
+        (LogicalKeyboardKey.arrowLeft, 5),
+        (LogicalKeyboardKey.arrowLeft, 0),
+        (LogicalKeyboardKey.arrowLeft, 0),
+      ]) {
+        await tester.sendKeyEvent(entry.$1);
+        await tester.pumpAndSettle();
+        final slider = tester.widget<Slider>(find.byType(Slider));
+        expect(slider.value, entry.$2 * 1000);
+        expect(slider.label, '左右调整 5 秒');
+        expect(FocusManager.instance.primaryFocus!.debugLabel, 'TV progress');
+      }
+      player.playback.currentPosition = const Duration(seconds: 59);
+      await tester.pumpAndSettle();
+      final bounds = tester.getRect(find.byType(Slider));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Slider>(find.byType(Slider)).value, 64000);
+      expect(tester.getRect(find.byType(Slider)), bounds);
+      expect(player.toggles, 0);
+      await tester.pumpWidget(const SizedBox());
+      scope.dispose();
+    },
+  );
+
+  testWidgets(
+    'TV player seeks configured 5s, activates controls, hides and handles Back',
     (tester) async {
       final player = _Player();
       final scope = FocusNode();
@@ -422,12 +687,15 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       expect(player.offsets, [
-        const Duration(seconds: -10),
-        const Duration(seconds: 10),
+        const Duration(seconds: -5),
+        const Duration(seconds: 5),
       ]);
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pump();
       expect(find.text('暂停'), findsOneWidget);
+      expect(FocusManager.instance.primaryFocus!.debugLabel, 'TV progress');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       expect(player.toggles, 1);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
@@ -439,7 +707,7 @@ void main() {
       expect(episodes, ['next', 'prev']);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      expect(player.offsets.last, const Duration(seconds: 10));
+      expect(player.offsets.last, const Duration(seconds: 5));
       await navigator.currentState!.maybePop();
       await tester.pump();
       expect(find.text('暂停'), findsNothing);

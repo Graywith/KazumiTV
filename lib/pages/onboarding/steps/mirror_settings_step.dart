@@ -16,7 +16,7 @@ class MirrorSettingsStep extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        NetworkMirrorSettings(margin: EdgeInsets.zero, showUpdateServer: false),
+        NetworkMirrorSettings(margin: EdgeInsets.zero),
         OnboardingHint(text: '可在「设置 → 网络设置」中调整。'),
       ],
     ),

@@ -1,3 +1,8 @@
+import 'package:kazumi/bean/settings/network_mirror_settings.dart';
+import 'package:kazumi/pages/settings/update_settings.dart';
+import 'package:kazumi/pages/player/danmaku_source_sheet.dart';
+import 'package:kazumi/pages/player/controller/player_danmaku_controller.dart';
+import 'package:kazumi/bean/settings/settings_list.dart';
 import 'package:kazumi/pages/search/search_page.dart';
 import 'package:kazumi/pages/search/search_controller.dart';
 import 'package:kazumi/repositories/search_history_repository.dart';
@@ -92,6 +97,11 @@ class _Downloads implements DownloadController {
   final recordKeys = ObservableList<String>();
   @override
   void refreshRecords() {}
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SearchDanmaku implements PlayerDanmakuController {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -321,6 +331,137 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
   }
+
+  testWidgets('Real direction step setting passes 5 seconds and reaches 15', (
+    tester,
+  ) async {
+    await tester.runAsync(
+      () => GStorage.putSetting(SettingsKeys.arrowKeySkipTime, 5),
+    );
+    final module = createModule(register: (c) => c.module(settingsModule));
+    await tester.pumpWidget(
+      ModularApp(
+        module: module,
+        initialRoute: '/settings/player',
+        defaultTransition: TransitionType.none,
+        child: Builder(
+          builder: (context) => MaterialApp.router(
+            routerConfig: ModularApp.routerConfigOf(context),
+            builder: (_, child) => TvSupport(child: child!),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('方向键跳转'),
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    final tile = find.ancestor(
+      of: find.text('方向键跳转'),
+      matching: find.byType(SettingsSliderTile),
+    );
+    final sliderFinder = find.descendant(
+      of: tile,
+      matching: find.byType(Slider),
+    );
+    final slider = tester.widget<Slider>(sliderFinder);
+    // The Slider's internal focus is below its widget context.
+    final focus = find
+        .descendant(of: sliderFinder, matching: find.byType(Focus))
+        .last;
+    tester.widget<Focus>(focus).focusNode!.requestFocus();
+    await tester.pumpAndSettle();
+    for (var seconds = 6; seconds <= 15; seconds++) {
+      await tester.runAsync(
+        () => tester.sendKeyEvent(LogicalKeyboardKey.arrowRight),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<Slider>(sliderFinder).value, seconds.toDouble());
+      expect(GStorage.getSetting(SettingsKeys.arrowKeySkipTime), seconds);
+    }
+    expect(slider.max, 15);
+    await tester.runAsync(
+      () => tester.sendKeyEvent(LogicalKeyboardKey.arrowRight),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(sliderFinder).value, 15);
+  });
+
+  testWidgets(
+    'Danmaku search uses the same tonal green action as TV settings',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.green,
+              brightness: Brightness.dark,
+            ),
+          ),
+          builder: (_, child) => TvSupport(child: child!),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showDanmakuSourceSheet(
+                  context,
+                  bangumiId: 9,
+                  initialKeyword: 'test',
+                  danmakuController: _SearchDanmaku(),
+                  onBeforeApply: () {},
+                ),
+                child: const Text('open search'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open search'));
+      await tester.pumpAndSettle();
+      final buttonFinder = find.ancestor(
+        of: find.text('搜索'),
+        matching: find.byType(FilledButton),
+      );
+      final button = tester.widget<FilledButton>(buttonFinder);
+      final context = tester.element(buttonFinder);
+      expect(
+        button.defaultStyleOf(context).backgroundColor!.resolve({}),
+        Theme.of(context).colorScheme.secondaryContainer,
+      );
+      Focus.of(tester.element(find.text('搜索'))).requestFocus();
+      await tester.pumpAndSettle();
+      expect(Focus.of(tester.element(find.text('搜索'))).hasFocus, isTrue);
+      final focusStates = {WidgetState.focused};
+      final themeStyle = Theme.of(context).filledButtonTheme.style!;
+      expect(
+        themeStyle.overlayColor!.resolve(focusStates),
+        isNot(themeStyle.overlayColor!.resolve({})),
+      );
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('Update server appears only in update settings', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (_, child) => TvSupport(child: child!),
+        home: const Scaffold(body: NetworkMirrorSettings()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('规则仓库镜像'), findsOneWidget);
+    expect(find.text('TV 更新服务器'), findsNothing);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (_, child) => TvSupport(child: child!),
+        home: const UpdateSettingsPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('TV 更新服务器'), findsOneWidget);
+  });
 
   testWidgets(
     'Settings download route renders original download manager inside settings',
@@ -1040,6 +1181,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('page history'), findsOneWidget);
     expect(Focus.of(tester.element(find.text('设置'))).hasFocus, isTrue);
+    final settingsButton = tester.widget<TextButton>(
+      find.ancestor(of: find.text('设置'), matching: find.byType(TextButton)),
+    );
+    final historyButton = tester.widget<TextButton>(
+      find.ancestor(of: find.text('历史'), matching: find.byType(TextButton)),
+    );
+    expect(settingsButton.style!.backgroundColor!.resolve({}), isNotNull);
+    expect(historyButton.style!.backgroundColor?.resolve({}), isNull);
   });
 
   testWidgets(

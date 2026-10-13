@@ -4,18 +4,11 @@ import 'package:kazumi/bean/settings/settings_list.dart';
 import 'package:kazumi/services/network/bangumi_acceleration.dart';
 import 'package:kazumi/services/network/image_acceleration.dart';
 import 'package:kazumi/services/storage/storage.dart';
-import 'package:kazumi/bean/tv/tv_support.dart';
-import 'package:kazumi/bean/settings/tv_update_server_tile.dart';
 
 class NetworkMirrorSettings extends StatefulWidget {
-  const NetworkMirrorSettings({
-    super.key,
-    this.margin,
-    this.showUpdateServer = true,
-  });
+  const NetworkMirrorSettings({super.key, this.margin});
 
   final EdgeInsetsGeometry? margin;
-  final bool showUpdateServer;
 
   @override
   State<NetworkMirrorSettings> createState() => _NetworkMirrorSettingsState();
@@ -38,7 +31,6 @@ class _NetworkMirrorSettingsState extends State<NetworkMirrorSettings> {
       title: const Text('访问加速'),
       margin: widget.margin,
       tiles: [
-        if (isTv && widget.showUpdateServer) const TvUpdateServerTile(),
         SettingsTile(
           leading: Icons.travel_explore_rounded,
           title: const Text('番剧条目加速'),

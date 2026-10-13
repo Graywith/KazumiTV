@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -620,11 +621,14 @@ class _PlayerScreenshotSheetState extends State<_PlayerScreenshotSheet> {
       return Semantics(
         selected: selected,
         child: FilledButton.tonalIcon(
-          style: _actionStyle(selected: selected).copyWith(
-            backgroundColor: WidgetStatePropertyAll(
-              selected
-                  ? Theme.of(context).colorScheme.secondaryContainer
-                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+          style: tvFilledButtonStyle(
+            Theme.of(context).colorScheme,
+            _actionStyle(selected: selected).copyWith(
+              backgroundColor: WidgetStatePropertyAll(
+                selected
+                    ? Theme.of(context).colorScheme.secondaryContainer
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
             ),
           ),
           onPressed: collection.saving ? null : _toggle,

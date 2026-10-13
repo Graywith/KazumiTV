@@ -25,11 +25,11 @@ class PlayerSeekController {
     required Future<void> Function({bool enableSync}) pause,
     required Future<void> Function({bool enableSync}) play,
     required Future<void> Function(bool enableSync) onSeekCompleted,
-  })  : _playback = playback,
-        _danmaku = danmaku,
-        _pause = pause,
-        _play = play,
-        _onSeekCompleted = onSeekCompleted;
+  }) : _playback = playback,
+       _danmaku = danmaku,
+       _pause = pause,
+       _play = play,
+       _onSeekCompleted = onSeekCompleted;
 
   final PlayerPlaybackController _playback;
   final PlayerDanmakuController _danmaku;
@@ -42,47 +42,45 @@ class PlayerSeekController {
 
   bool get hasActiveInteractiveSeek => _interactiveSession != null;
 
-  Future<void> seekTo(
-    Duration target, {
-    bool enableSync = true,
-  }) {
+  Future<void> seekTo(Duration target, {bool enableSync = true}) {
     final player = _playback.mediaPlayer;
     if (player == null) {
       return Future<void>.value();
     }
 
     final normalizedTarget = _normalize(target);
+    final positionToken = _playback.seekPosition.begin(normalizedTarget);
     _playback.currentPosition = normalizedTarget;
     _danmaku.clearAndInvalidateScheduledDanmakus();
 
     final operation = _seekTail.then((_) async {
-      if (!_playback.isCurrentPlayer(player)) {
-        return;
-      }
+      var success = false;
       try {
-        await player.seek(normalizedTarget);
-      } catch (_) {
-        return;
-      }
-      if (_playback.isCurrentPlayer(player)) {
-        await _onSeekCompleted(enableSync);
+        if (!_playback.isCurrentPlayer(player)) return;
+        try {
+          await player.seek(normalizedTarget);
+        } catch (_) {
+          return;
+        }
+        success = true;
+        if (_playback.isCurrentPlayer(player)) {
+          await _onSeekCompleted(enableSync);
+        }
+      } finally {
+        _playback.seekPosition.finish(positionToken, success: success);
       }
     });
     _seekTail = _settle(operation);
     return operation;
   }
 
-  Future<void> seekBy(
-    Duration offset, {
-    bool enableSync = true,
-  }) =>
-      seekTo(
-        _playback.currentPosition + offset,
-        enableSync: enableSync,
-      );
+  Future<void> seekBy(Duration offset, {bool enableSync = true}) =>
+      seekTo(_playback.currentPosition + offset, enableSync: enableSync);
 
   void beginInteractiveSeek() {
     final initialPosition = _playback.currentPosition;
+    _playback.seekPosition.interactive = true;
+    _playback.seekPosition.preview(initialPosition);
     final previousSession = _interactiveSession;
     // Keep the original playing state across overlapping gestures.
     final wasPlaying = previousSession != null && _isCurrent(previousSession)
@@ -104,6 +102,7 @@ class PlayerSeekController {
     }
     session.target = _normalize(target);
     _playback.currentPosition = session.target;
+    _playback.seekPosition.preview(session.target);
     return true;
   }
 
@@ -112,12 +111,15 @@ class PlayerSeekController {
     if (session == null) {
       return Future<bool>.value(false);
     }
-    return session.completion ??=
-        _finishInteractiveSeek(session, cancelled: cancelled);
+    return session.completion ??= _finishInteractiveSeek(
+      session,
+      cancelled: cancelled,
+    );
   }
 
   void invalidateInteractiveSeek() {
     _interactiveSession = null;
+    _playback.seekPosition.clear();
   }
 
   Future<bool> _finishInteractiveSeek(
@@ -131,6 +133,7 @@ class PlayerSeekController {
       if (cancelled) {
         // Only the preview moved; cancellation needs no native seek.
         _playback.currentPosition = session.initialPosition;
+        _playback.seekPosition.preview(session.initialPosition);
       }
       await session.pauseCompleted;
       if (!_isCurrent(session)) {
@@ -149,6 +152,7 @@ class PlayerSeekController {
     } finally {
       if (identical(_interactiveSession, session)) {
         _interactiveSession = null;
+        _playback.seekPosition.interactive = false;
       }
     }
   }

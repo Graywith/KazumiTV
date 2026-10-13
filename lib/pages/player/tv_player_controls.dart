@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +16,8 @@ class TvPlayerControls extends StatefulWidget {
     required this.onBack,
     this.onEpisodes,
     this.onDanmakuSearch,
+    this.onVideoInfo,
+    this.onToggleDanmaku,
     this.isBlocked,
   });
   final PlayerController player;
@@ -23,6 +26,8 @@ class TvPlayerControls extends StatefulWidget {
   final VoidCallback onBack;
   final VoidCallback? onEpisodes;
   final VoidCallback? onDanmakuSearch;
+  final VoidCallback? onVideoInfo;
+  final VoidCallback? onToggleDanmaku;
   final bool Function()? isBlocked;
 
   @override
@@ -35,10 +40,13 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
   final _nextFocus = FocusNode(debugLabel: 'TV next episode');
   final _episodesFocus = FocusNode(debugLabel: 'TV episode list');
   final _danmakuFocus = FocusNode(debugLabel: 'TV danmaku search');
+  final _danmakuToggleFocus = FocusNode(debugLabel: 'TV danmaku toggle');
+  final _infoFocus = FocusNode(debugLabel: 'TV playback info');
   final _progressFocus = FocusNode(debugLabel: 'TV progress');
   Timer? _timer;
   LocalHistoryEntry? _entry;
   bool _visible = false;
+  bool _openingOnProgress = false;
   bool _disposed = false;
 
   @override
@@ -60,8 +68,9 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
     _timer = Timer(const Duration(seconds: 5), _hide);
   }
 
-  void _show() {
+  void _show({bool focusProgress = false}) {
     if (!_visible) {
+      _openingOnProgress = focusProgress;
       setState(() => _visible = true);
       _entry = LocalHistoryEntry(
         impliesAppBarDismissal: false,
@@ -76,7 +85,10 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
       );
       ModalRoute.of(context)!.addLocalHistoryEntry(_entry!);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _visible) _playFocus.requestFocus();
+        if (mounted && _visible) {
+          (focusProgress ? _progressFocus : _playFocus).requestFocus();
+          _openingOnProgress = false;
+        }
       });
     }
     _restartTimer();
@@ -85,28 +97,45 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
   void _hide() => _entry?.remove();
 
   List<FocusNode> get _buttons => [
+    if (widget.onVideoInfo != null) _infoFocus,
+    if (widget.onEpisodes != null) _episodesFocus,
     _previousFocus,
     _playFocus,
     _nextFocus,
+    if (widget.onToggleDanmaku != null) _danmakuToggleFocus,
     if (widget.onDanmakuSearch != null) _danmakuFocus,
-    if (widget.onEpisodes != null) _episodesFocus,
   ];
 
-  void _seek(bool forward) =>
-      unawaited(widget.player.seekBy(Duration(seconds: forward ? 10 : -10)));
+  void _seek(bool forward) => unawaited(
+    widget.player.seekBy(
+      Duration(
+        seconds: (forward ? 1 : -1) * widget.player.playback.arrowKeySkipTime,
+      ),
+    ),
+  );
 
   void _openEpisodes() {
     _hide();
     widget.onEpisodes?.call();
   }
 
+  void _openVideoInfo() {
+    _hide();
+    widget.onVideoInfo?.call();
+  }
+
   void _activate() {
+    if (_openingOnProgress) return;
     if (_previousFocus.hasFocus) {
       unawaited(widget.onEpisode('prev'));
     } else if (_nextFocus.hasFocus) {
       unawaited(widget.onEpisode('next'));
     } else if (_episodesFocus.hasFocus) {
       _openEpisodes();
+    } else if (_danmakuToggleFocus.hasFocus) {
+      widget.onToggleDanmaku?.call();
+    } else if (_infoFocus.hasFocus) {
+      _openVideoInfo();
     } else if (_danmakuFocus.hasFocus) {
       _hide();
       widget.onDanmakuSearch?.call();
@@ -164,6 +193,7 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
     }
     if (!_visible) {
       if (left || right) {
+        _show(focusProgress: true);
         _seek(right);
       } else if (event is KeyDownEvent) {
         _show();
@@ -179,13 +209,13 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
       }
     } else if (down) {
       _playFocus.requestFocus();
-    } else if (_progressFocus.hasFocus) {
+    } else if (_progressFocus.hasFocus || _openingOnProgress) {
       _seek(right);
     } else {
       final buttons = _buttons;
       final current = buttons.indexWhere((node) => node.hasFocus);
       final index = current < 0
-          ? 1
+          ? buttons.indexOf(_playFocus)
           : (current + (right ? 1 : -1)).clamp(0, buttons.length - 1);
       buttons[index].requestFocus();
     }
@@ -205,6 +235,8 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
     _episodesFocus.dispose();
     _danmakuFocus.dispose();
     _progressFocus.dispose();
+    _infoFocus.dispose();
+    _danmakuToggleFocus.dispose();
     super.dispose();
   }
 
@@ -237,16 +269,40 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Observer(
+                      builder: (_) {
+                        final debug = widget.player.debug;
+                        if (debug.playerWidth <= 0 || debug.playerHeight <= 0)
+                          return const SizedBox.shrink();
+                        final bitrate = double.tryParse(
+                          debug.playerVideoBitrate,
+                        );
+                        return Text(
+                          '实测 ${debug.playerWidth}×${debug.playerHeight}'
+                          '${bitrate != null && bitrate > 0 ? ' · ${(bitrate / 1000000).toStringAsFixed(1)} Mbps' : ''}',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        );
+                      },
+                    ),
                     Row(
                       children: [
-                        Text(
-                          _time(playback.currentPosition),
-                          style: const TextStyle(color: Colors.white),
+                        SizedBox(
+                          width: 80,
+                          child: Text(
+                            _time(playback.currentPosition),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
                         ),
                         Expanded(
                           child: Slider(
                             focusNode: _progressFocus,
-                            label: '左右调整 10 秒',
+                            label: '左右调整 ${playback.arrowKeySkipTime} 秒',
                             value: value,
                             max: total > 0 ? total : 1,
                             onChanged: total > 0
@@ -259,58 +315,98 @@ class _TvPlayerControlsState extends State<TvPlayerControls> {
                                 : null,
                           ),
                         ),
-                        Text(
-                          _time(playback.duration),
-                          style: const TextStyle(color: Colors.white),
+                        SizedBox(
+                          width: 80,
+                          child: Text(
+                            _time(playback.duration),
+                            textAlign: TextAlign.end,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
                         ),
                       ],
                     ),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        TextButton.icon(
-                          focusNode: _previousFocus,
-                          onPressed: () => widget.onEpisode('prev'),
-                          icon: const Icon(Icons.skip_previous),
-                          label: const Text('上一集'),
-                        ),
-                        const SizedBox(width: 12),
-                        FilledButton.icon(
-                          focusNode: _playFocus,
-                          onPressed: widget.player.playOrPause,
-                          icon: Icon(
-                            playback.playing ? Icons.pause : Icons.play_arrow,
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (widget.onVideoInfo != null)
+                                TextButton.icon(
+                                  focusNode: _infoFocus,
+                                  onPressed: _openVideoInfo,
+                                  icon: const Icon(Icons.info_outline),
+                                  label: const Text('播放信息'),
+                                ),
+                              if (widget.onEpisodes != null)
+                                TextButton.icon(
+                                  focusNode: _episodesFocus,
+                                  onPressed: _openEpisodes,
+                                  icon: const Icon(Icons.list),
+                                  label: const Text('选集'),
+                                ),
+                              TextButton.icon(
+                                focusNode: _previousFocus,
+                                onPressed: () => widget.onEpisode('prev'),
+                                icon: const Icon(Icons.skip_previous),
+                                label: const Text('上一集'),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
                           ),
-                          label: Text(playback.playing ? '暂停' : '播放'),
                         ),
-                        const SizedBox(width: 12),
-                        TextButton.icon(
-                          focusNode: _nextFocus,
-                          onPressed: () => widget.onEpisode('next'),
-                          icon: const Icon(Icons.skip_next),
-                          label: const Text('下一集'),
+                        SizedBox(
+                          width: 80,
+                          child: FilledButton.icon(
+                            focusNode: _playFocus,
+                            onPressed: widget.player.playOrPause,
+                            icon: Icon(
+                              playback.playing ? Icons.pause : Icons.play_arrow,
+                            ),
+                            label: Text(playback.playing ? '暂停' : '播放'),
+                          ),
                         ),
-                        if (widget.onDanmakuSearch != null) ...[
-                          const SizedBox(width: 12),
-                          TextButton.icon(
-                            focusNode: _danmakuFocus,
-                            onPressed: () {
-                              _hide();
-                              widget.onDanmakuSearch?.call();
-                            },
-                            icon: const Icon(Icons.search),
-                            label: const Text('弹幕检索'),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                focusNode: _nextFocus,
+                                onPressed: () => widget.onEpisode('next'),
+                                icon: const Icon(Icons.skip_next),
+                                label: const Text('下一集'),
+                              ),
+                              if (widget.onToggleDanmaku != null)
+                                TextButton.icon(
+                                  focusNode: _danmakuToggleFocus,
+                                  onPressed: widget.onToggleDanmaku,
+                                  icon: Icon(
+                                    widget.player.danmaku.danmakuOn
+                                        ? Icons.subtitles
+                                        : Icons.subtitles_off_outlined,
+                                  ),
+                                  label: Text(
+                                    widget.player.danmaku.danmakuOn
+                                        ? '弹幕：开'
+                                        : '弹幕：关',
+                                  ),
+                                ),
+                              if (widget.onDanmakuSearch != null)
+                                TextButton.icon(
+                                  focusNode: _danmakuFocus,
+                                  onPressed: () {
+                                    _hide();
+                                    widget.onDanmakuSearch?.call();
+                                  },
+                                  icon: const Icon(Icons.search),
+                                  label: const Text('搜索弹幕'),
+                                ),
+                            ],
                           ),
-                        ],
-                        if (widget.onEpisodes != null) ...[
-                          const SizedBox(width: 12),
-                          TextButton.icon(
-                            focusNode: _episodesFocus,
-                            onPressed: _openEpisodes,
-                            icon: const Icon(Icons.list),
-                            label: const Text('选集'),
-                          ),
-                        ],
+                        ),
                       ],
                     ),
                   ],

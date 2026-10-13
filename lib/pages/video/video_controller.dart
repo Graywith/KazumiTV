@@ -1,6 +1,6 @@
 import 'dart:async';
+import 'package:kazumi/request/clients/danmaku_client.dart';
 import 'package:kazumi/bean/tv/tv_support.dart';
-import 'package:kazumi/utils/dandan_credentials.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/modules/roads/road_module.dart';
 import 'package:kazumi/pages/video/video_playback_args.dart';
@@ -564,6 +564,7 @@ abstract class _VideoPageController with Store implements Disposable {
         params.bangumiId,
         params.pluginName,
         params.danmakuEpisodeNumber,
+        title: params.bangumiName,
       );
       if (session.isActive && danmakuSession.isActive) {
         if (result.hasDanmakus) {
@@ -578,13 +579,10 @@ abstract class _VideoPageController with Store implements Disposable {
           playerController.danmaku.applyUnavailableDanmakuLoad(result);
           if (result.isFailed) {
             KazumiDialog.showToast(
-              message:
-                  isTv &&
-                      (dandanCredentials['id']!.isEmpty ||
-                          dandanCredentials['value']!.isEmpty)
+              message: isTv && !DanmakuClient.isConfigured
                   ? '未配置弹弹play凭证，暂不可加载弹幕'
                   : isTv
-                  ? '弹幕加载失败，可在控制栏选择弹幕检索'
+                  ? '弹幕加载失败，可在控制栏选择搜索弹幕'
                   : '弹幕加载失败，可手动检索',
             );
           }
@@ -594,13 +592,10 @@ abstract class _VideoPageController with Store implements Disposable {
       if (session.isActive && danmakuSession.isActive) {
         playerController.danmaku.finishDanmakuLoad(disableDanmaku: true);
         KazumiDialog.showToast(
-          message:
-              isTv &&
-                  (dandanCredentials['id']!.isEmpty ||
-                      dandanCredentials['value']!.isEmpty)
+          message: isTv && !DanmakuClient.isConfigured
               ? '未配置弹弹play凭证，暂不可加载弹幕'
               : isTv
-              ? '弹幕加载失败，可在控制栏选择弹幕检索'
+              ? '弹幕加载失败，可在控制栏选择搜索弹幕'
               : '弹幕加载失败，可手动检索',
         );
       }

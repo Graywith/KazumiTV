@@ -1,3 +1,4 @@
+import 'package:kazumi/bean/tv/tv_support.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -95,7 +96,8 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
     _popularTags = widget.bangumiItem.tags
         .map((tag) => tag.name.trim())
         .where(
-            (tag) => tag.isNotEmpty && tag.characters.length <= _maxTagLength)
+          (tag) => tag.isNotEmpty && tag.characters.length <= _maxTagLength,
+        )
         .toSet()
         .toList();
     _commentController.text = _initialComment;
@@ -194,7 +196,8 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
     if (_commentController.text.characters.length > _maxCommentLength ||
         _selectedTags.length > _maxTags) {
       setState(
-          () => _submitError = '吐槽最多 $_maxCommentLength 字，标签最多 $_maxTags 个');
+        () => _submitError = '吐槽最多 $_maxCommentLength 字，标签最多 $_maxTags 个',
+      );
       _revealFeedback();
       return;
     }
@@ -216,8 +219,11 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
         return;
       }
     } catch (error, stackTrace) {
-      KazumiLogger().e('RatingReviewDialog: failed to submit rating review',
-          error: error, stackTrace: stackTrace);
+      KazumiLogger().e(
+        'RatingReviewDialog: failed to submit rating review',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
     if (!_active) return;
     setState(() {
@@ -233,8 +239,11 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
       if (_duration == Duration.zero) {
         _scrollController.jumpTo(0);
       } else {
-        _scrollController.animateTo(0,
-            duration: _duration, curve: Curves.easeOutCubic);
+        _scrollController.animateTo(
+          0,
+          duration: _duration,
+          curve: Curves.easeOutCubic,
+        );
       }
     });
   }
@@ -257,7 +266,11 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: EdgeInsets.fromLTRB(
-                    horizontalPadding, 8, horizontalPadding, 24),
+                  horizontalPadding,
+                  8,
+                  horizontalPadding,
+                  24,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -265,11 +278,11 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
                       _buildSubmitError(),
                       const SizedBox(height: 20),
                     ],
-                    Text(_displayName,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    Text(
+                      _displayName,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 20),
                     _buildComment(),
                     const SizedBox(height: 20),
@@ -301,15 +314,20 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
           autofocus: true,
           child: fullscreen
               ? Dialog.fullscreen(
-                  backgroundColor: colors.surface, child: content)
+                  backgroundColor: colors.surface,
+                  child: content,
+                )
               : Dialog(
-                  constraints:
-                      const BoxConstraints(maxWidth: 640, maxHeight: 800),
+                  constraints: const BoxConstraints(
+                    maxWidth: 640,
+                    maxHeight: 800,
+                  ),
                   insetPadding: const EdgeInsets.all(24),
                   backgroundColor: colors.surfaceContainerHigh,
                   surfaceTintColor: Colors.transparent,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28)),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
                   clipBehavior: Clip.antiAlias,
                   child: content,
                 ),
@@ -319,20 +337,24 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
   }
 
   Widget _buildHeader() => Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 24, 12),
-        child: Row(children: [
-          IconButton(
-            tooltip: '关闭',
-            onPressed: _submitting ? null : _requestClose,
-            icon: const Icon(Icons.close_rounded),
+    padding: const EdgeInsets.fromLTRB(12, 12, 24, 12),
+    child: Row(
+      children: [
+        IconButton(
+          tooltip: '关闭',
+          onPressed: _submitting ? null : _requestClose,
+          icon: const Icon(Icons.close_rounded),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            _editing ? '编辑吐槽' : '发表吐槽',
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(_editing ? '编辑吐槽' : '发表吐槽',
-                style: Theme.of(context).textTheme.titleLarge),
-          ),
-        ]),
-      );
+        ),
+      ],
+    ),
+  );
 
   Widget _buildComment() {
     final colors = Theme.of(context).colorScheme;
@@ -376,71 +398,104 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
         color: colors.secondaryContainer,
         borderRadius: BorderRadius.circular(24),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Semantics(
-            liveRegion: true,
-            label: _score == 0 ? '未评分' : '$_score 分，${_scoreLabels[_score]}',
-            child: ExcludeSemantics(
-              child: AnimatedSwitcher(
-                duration: _duration,
-                child: SizedBox(
-                  key: ValueKey(_score),
-                  width: 64,
-                  child: Text(_score == 0 ? '—' : '$_score',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.displaySmall?.copyWith(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Semantics(
+                liveRegion: true,
+                label: _score == 0
+                    ? '未评分'
+                    : '$_score 分，${_scoreLabels[_score]}',
+                child: ExcludeSemantics(
+                  child: AnimatedSwitcher(
+                    duration: _duration,
+                    child: SizedBox(
+                      key: ValueKey(_score),
+                      width: 64,
+                      child: Text(
+                        _score == 0 ? '—' : '$_score',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.displaySmall?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: colors.onSecondaryContainer)),
+                          color: colors.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-              child: Column(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text('评分',
-                    style: theme.textTheme.labelLarge
-                        ?.copyWith(color: colors.onSecondaryContainer)),
-                const SizedBox(height: 4),
-                Text(_scoreLabels[_score],
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(color: colors.onSecondaryContainer)),
-              ])),
-          if (_score != 0)
-            IconButton(
-              tooltip: '清除评分',
-              onPressed: _submitting ? null : () => _setScore(0),
-              icon: Icon(Icons.restart_alt_rounded,
-                  color: colors.onSecondaryContainer),
-            ),
-        ]),
-        const SizedBox(height: 16),
-        LayoutBuilder(builder: (context, constraints) {
-          final targetWidth =
-              (MediaQuery.textScalerOf(context).scale(16) * 2 + 12)
-                  .clamp(48.0, double.infinity);
-          final columns = constraints.maxWidth >= targetWidth * 10 + 36
-              ? 10
-              : constraints.maxWidth >= targetWidth * 5 + 16
+                    Text(
+                      '评分',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: colors.onSecondaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _scoreLabels[_score],
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: colors.onSecondaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_score != 0)
+                IconButton(
+                  tooltip: '清除评分',
+                  onPressed: _submitting ? null : () => _setScore(0),
+                  icon: Icon(
+                    Icons.restart_alt_rounded,
+                    color: colors.onSecondaryContainer,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final targetWidth =
+                  (MediaQuery.textScalerOf(context).scale(16) * 2 + 12).clamp(
+                    48.0,
+                    double.infinity,
+                  );
+              final columns = constraints.maxWidth >= targetWidth * 10 + 36
+                  ? 10
+                  : constraints.maxWidth >= targetWidth * 5 + 16
                   ? 5
                   : 2;
-          return Column(children: [
-            for (var start = 1; start <= 10; start += columns) ...[
-              if (start > 1) const SizedBox(height: 8),
-              Row(children: [
-                for (var index = 0; index < columns; index++) ...[
-                  if (index > 0) const SizedBox(width: 4),
-                  Expanded(
-                      child: _buildScoreButton(start + index, index, columns)),
+              return Column(
+                children: [
+                  for (var start = 1; start <= 10; start += columns) ...[
+                    if (start > 1) const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        for (var index = 0; index < columns; index++) ...[
+                          if (index > 0) const SizedBox(width: 4),
+                          Expanded(
+                            child: _buildScoreButton(
+                              start + index,
+                              index,
+                              columns,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ],
-              ]),
-            ],
-          ]);
-        }),
-      ]),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -456,34 +511,43 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
         child: FilledButton(
           key: ValueKey('review-score-$value'),
           onPressed: _submitting ? null : () => _setScore(value),
-          style: ButtonStyle(
-            padding: const WidgetStatePropertyAll(
-                EdgeInsets.symmetric(vertical: 12)),
-            minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
-            tapTargetSize: MaterialTapTargetSize.padded,
-            visualDensity: VisualDensity.standard,
-            backgroundColor: WidgetStatePropertyAll(
-                selected ? colors.primary : colors.surfaceContainerLowest),
-            foregroundColor: WidgetStatePropertyAll(
-                selected ? colors.onPrimary : colors.onSurface),
-            animationDuration: _duration,
-            shape: WidgetStateProperty.resolveWith((states) {
-              final radius = selected
-                  ? 24.0
-                  : states.contains(WidgetState.pressed)
-                      ? 12.0
-                      : 4.0;
-              return RoundedRectangleBorder(
+          style: tvFilledButtonStyle(
+            colors,
+            ButtonStyle(
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(vertical: 12),
+              ),
+              minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+              tapTargetSize: MaterialTapTargetSize.padded,
+              visualDensity: VisualDensity.standard,
+              backgroundColor: WidgetStatePropertyAll(
+                selected ? colors.primary : colors.surfaceContainerLowest,
+              ),
+              foregroundColor: WidgetStatePropertyAll(
+                selected ? colors.onPrimary : colors.onSurface,
+              ),
+              animationDuration: _duration,
+              shape: WidgetStateProperty.resolveWith((states) {
+                final radius = selected
+                    ? 24.0
+                    : states.contains(WidgetState.pressed)
+                    ? 12.0
+                    : 4.0;
+                return RoundedRectangleBorder(
                   borderRadius: BorderRadius.horizontal(
-                left: Radius.circular(index == 0 ? 24 : radius),
-                right: Radius.circular(index == columns - 1 ? 24 : radius),
-              ));
-            }),
+                    left: Radius.circular(index == 0 ? 24 : radius),
+                    right: Radius.circular(index == columns - 1 ? 24 : radius),
+                  ),
+                );
+              }),
+            ),
           ),
           child: ExcludeSemantics(
-              child: Text('$value',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600))),
+            child: Text(
+              '$value',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
         ),
       ),
     );
@@ -493,167 +557,208 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final suggestions = _showAllTags ? _popularTags : _popularTags.take(6);
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        Expanded(child: Text('标签', style: theme.textTheme.titleMedium)),
-        Text('${_selectedTags.length} / $_maxTags',
-            style: theme.textTheme.labelLarge
-                ?.copyWith(color: colors.onSurfaceVariant)),
-      ]),
-      const SizedBox(height: 12),
-      if (_selectedTags.isNotEmpty) ...[
-        Wrap(spacing: 8, runSpacing: 4, children: [
-          for (final tag in _selectedTags)
-            InputChip(
-              label: Text(tag, overflow: TextOverflow.ellipsis),
-              selected: true,
-              showCheckmark: false,
-              deleteButtonTooltipMessage: '移除标签 $tag',
-              onDeleted: _submitting ? null : () => _toggleTag(tag),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text('标签', style: theme.textTheme.titleMedium)),
+            Text(
+              '${_selectedTags.length} / $_maxTags',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
             ),
-        ]),
+          ],
+        ),
         const SizedBox(height: 12),
-      ],
-      if (_popularTags.isNotEmpty) ...[
-        Text('热门标签',
-            style: theme.textTheme.labelMedium
-                ?.copyWith(color: colors.onSurfaceVariant)),
-        const SizedBox(height: 4),
-      ],
-      Wrap(spacing: 8, runSpacing: 4, children: [
-        for (final tag in suggestions)
-          FilterChip(
-            label: Text(tag, overflow: TextOverflow.ellipsis),
-            selected: _selectedTags.contains(tag),
-            showCheckmark: true,
-            onSelected: _submitting ? null : (_) => _toggleTag(tag),
+        if (_selectedTags.isNotEmpty) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final tag in _selectedTags)
+                InputChip(
+                  label: Text(tag, overflow: TextOverflow.ellipsis),
+                  selected: true,
+                  showCheckmark: false,
+                  deleteButtonTooltipMessage: '移除标签 $tag',
+                  onDeleted: _submitting ? null : () => _toggleTag(tag),
+                ),
+            ],
           ),
-        if (_popularTags.length > 6)
-          ActionChip(
-            avatar: Icon(
-                _showAllTags
-                    ? Icons.expand_less_rounded
-                    : Icons.expand_more_rounded,
-                size: 18),
-            label: Text(_showAllTags ? '收起' : '更多'),
-            onPressed: _submitting
-                ? null
-                : () => setState(() => _showAllTags = !_showAllTags),
+          const SizedBox(height: 12),
+        ],
+        if (_popularTags.isNotEmpty) ...[
+          Text(
+            '热门标签',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
           ),
-        if (!_showCustomTag)
-          ActionChip(
-            avatar: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('自定义标签'),
-            onPressed: _submitting
-                ? null
-                : () {
-                    setState(() => _showCustomTag = true);
-                    _tagFocus.requestFocus();
-                  },
-          ),
-      ]),
-      AnimatedSize(
-        duration: _duration,
-        curve: Curves.easeOutCubic,
-        alignment: Alignment.topCenter,
-        child: _showCustomTag
-            ? Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: TextField(
-                  key: const ValueKey('review-custom-tag'),
-                  controller: _tagController,
-                  focusNode: _tagFocus,
-                  enabled: !_submitting,
-                  maxLength: _maxTagLength,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _addCustomTag(),
-                  onChanged: (_) => setState(() => _tagError = null),
-                  decoration: InputDecoration(
-                    labelText: '自定义标签',
-                    hintText: '例如：治愈',
-                    filled: true,
-                    fillColor: colors.surfaceContainerLowest,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                    suffixIcon: IconButton(
-                      tooltip: '添加标签',
-                      onPressed: _submitting ? null : _addCustomTag,
-                      icon: const Icon(Icons.add_rounded),
+          const SizedBox(height: 4),
+        ],
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final tag in suggestions)
+              FilterChip(
+                label: Text(tag, overflow: TextOverflow.ellipsis),
+                selected: _selectedTags.contains(tag),
+                showCheckmark: true,
+                onSelected: _submitting ? null : (_) => _toggleTag(tag),
+              ),
+            if (_popularTags.length > 6)
+              ActionChip(
+                avatar: Icon(
+                  _showAllTags
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  size: 18,
+                ),
+                label: Text(_showAllTags ? '收起' : '更多'),
+                onPressed: _submitting
+                    ? null
+                    : () => setState(() => _showAllTags = !_showAllTags),
+              ),
+            if (!_showCustomTag)
+              ActionChip(
+                avatar: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('自定义标签'),
+                onPressed: _submitting
+                    ? null
+                    : () {
+                        setState(() => _showCustomTag = true);
+                        _tagFocus.requestFocus();
+                      },
+              ),
+          ],
+        ),
+        AnimatedSize(
+          duration: _duration,
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: _showCustomTag
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: TextField(
+                    key: const ValueKey('review-custom-tag'),
+                    controller: _tagController,
+                    focusNode: _tagFocus,
+                    enabled: !_submitting,
+                    maxLength: _maxTagLength,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _addCustomTag(),
+                    onChanged: (_) => setState(() => _tagError = null),
+                    decoration: InputDecoration(
+                      labelText: '自定义标签',
+                      hintText: '例如：治愈',
+                      filled: true,
+                      fillColor: colors.surfaceContainerLowest,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      suffixIcon: IconButton(
+                        tooltip: '添加标签',
+                        onPressed: _submitting ? null : _addCustomTag,
+                        icon: const Icon(Icons.add_rounded),
+                      ),
                     ),
                   ),
-                ),
-              )
-            : const SizedBox.shrink(),
-      ),
-      if (_tagError != null)
-        Semantics(
+                )
+              : const SizedBox.shrink(),
+        ),
+        if (_tagError != null)
+          Semantics(
             liveRegion: true,
             child: Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(_tagError!,
-                  style:
-                      theme.textTheme.bodySmall?.copyWith(color: colors.error)),
-            )),
-    ]);
+              child: Text(
+                _tagError!,
+                style: theme.textTheme.bodySmall?.copyWith(color: colors.error),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _buildSubmitError() {
     final colors = Theme.of(context).colorScheme;
     return Semantics(
-        liveRegion: true,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-              color: colors.errorContainer,
-              borderRadius: BorderRadius.circular(16)),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.errorContainer,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Icon(Icons.error_outline_rounded, color: colors.onErrorContainer),
             const SizedBox(width: 12),
             Expanded(
-                child: Text(_submitError!,
-                    style: TextStyle(color: colors.onErrorContainer))),
-          ]),
-        ));
+              child: Text(
+                _submitError!,
+                style: TextStyle(color: colors.onErrorContainer),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildActions() {
     final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-      child: Row(children: [
-        Expanded(
-            child: Text('发布至 Bangumi',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: colors.onSurfaceVariant))),
-        const SizedBox(width: 16),
-        if (_submitting)
-          Semantics(
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '发布至 Bangumi',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            ),
+          ),
+          const SizedBox(width: 16),
+          if (_submitting)
+            Semantics(
               liveRegion: true,
               child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 48),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     LoadingIndicator(
-                        size: 24,
-                        color: colors.primary,
-                        semanticsLabel: '正在发表'),
+                      size: 24,
+                      color: colors.primary,
+                      semanticsLabel: '正在发表',
+                    ),
                     const SizedBox(width: 12),
                     const Text('正在发表…'),
-                  ])))
-        else
-          StateActionButton(
-            onPressed: _canSubmit ? _submit : null,
-            text: _submitError != null
-                ? '重试'
-                : _editing
-                    ? '保存修改'
-                    : '发表',
-            icon: _submitError != null
-                ? Icons.refresh_rounded
-                : Icons.arrow_upward_rounded,
-          ),
-      ]),
+                  ],
+                ),
+              ),
+            )
+          else
+            StateActionButton(
+              onPressed: _canSubmit ? _submit : null,
+              text: _submitError != null
+                  ? '重试'
+                  : _editing
+                  ? '保存修改'
+                  : '发表',
+              icon: _submitError != null
+                  ? Icons.refresh_rounded
+                  : Icons.arrow_upward_rounded,
+            ),
+        ],
+      ),
     );
   }
 }

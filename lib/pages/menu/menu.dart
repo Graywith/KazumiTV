@@ -29,6 +29,7 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
   late int _selectedIndex = menu.indexForPath(widget.location);
   DateTime? _lastExitPromptAt;
   bool _tvSettingsOpen = false;
+  bool _tvSettingsSelected = false;
   bool _closingMenu = false;
 
   /// The shell sits at the bottom of the root stack and stays mounted while
@@ -124,9 +125,11 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
   void _selectDestination(int index) {
     _lastExitPromptAt = null;
     if (isTv && index == 4) {
+      setState(() => _tvSettingsSelected = true);
       _openTvPage('/settings/player');
       return;
     }
+    if (_tvSettingsSelected) setState(() => _tvSettingsSelected = false);
     if (index == _selectedIndex) {
       return;
     }
@@ -375,7 +378,8 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
                       horizontal: 4,
                       vertical: 6,
                     ),
-                    backgroundColor: index < 4 && index == selectedIndex
+                    backgroundColor:
+                        index == (_tvSettingsSelected ? 4 : selectedIndex)
                         ? colors.secondaryContainer
                         : null,
                   ),

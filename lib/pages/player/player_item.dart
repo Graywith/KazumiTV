@@ -1,7 +1,7 @@
 import 'package:kazumi/pages/player/tv_player_controls.dart';
 import 'package:kazumi/bean/tv/tv_support.dart';
 import 'dart:async';
-import 'package:kazumi/utils/dandan_credentials.dart';
+import 'package:kazumi/request/clients/danmaku_client.dart';
 import 'dart:io';
 import 'package:kazumi/pages/player/player_item_panel.dart';
 import 'package:kazumi/pages/player/player_keyboard_shortcuts.dart';
@@ -584,11 +584,6 @@ class _PlayerItemState extends State<PlayerItem>
     if (playerController.danmaku.danmakuOn) {
       playerController.danmaku.setDanmakuEnabled(false);
       GStorage.putSetting(SettingsKeys.danmakuEnabledByDefault, false);
-      unawaited(_updateAndroidPIPActions(force: true));
-      return;
-    }
-    if (playerController.danmaku.danDanmakus.isEmpty) {
-      showDanmakuSwitch();
       unawaited(_updateAndroidPIPActions(force: true));
       return;
     }
@@ -1261,10 +1256,8 @@ class _PlayerItemState extends State<PlayerItem>
   }
 
   void showDanmakuSwitch() {
-    if (isTv &&
-        (dandanCredentials['id']!.isEmpty ||
-            dandanCredentials['value']!.isEmpty)) {
-      KazumiDialog.showToast(message: '未配置弹弹play凭证，暂不可检索弹幕');
+    if (isTv && !DanmakuClient.isConfigured) {
+      KazumiDialog.showToast(message: '请先在弹幕设置填写弹弹play凭证');
       return;
     }
     unawaited(
@@ -1577,6 +1570,8 @@ class _PlayerItemState extends State<PlayerItem>
                               onBack: widget.onBackPressed,
                               onEpisodes: widget.onToggleSidePanel,
                               onDanmakuSearch: showDanmakuSwitch,
+                              onVideoInfo: showVideoInfo,
+                              onToggleDanmaku: handleDanmaku,
                               isBlocked: widget.isTvInputBlocked,
                             )
                           : PlayerItemPanel(

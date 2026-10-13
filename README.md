@@ -4,17 +4,18 @@
 
 基于 [Kazumi](https://github.com/Predidit/Kazumi) 的非官方 Android TV 适配版，由个人开发者维护。使用 Flutter 开发，支持自定义规则、番剧浏览、搜索和在线观看，并针对遥控器做了焦点导航与播放控制适配。
 
-本项目为个人维护的开源项目，遵循 GPL-3.0 许可，非商业、无广告、无收费、无赞助或导流。不内置、不提供任何视频内容，仅作为播放与采集工具。弹幕功能需自备开发者凭证。
+本项目为个人维护的开源项目，遵循 GPL-3.0 许可，非商业、无广告、无收费、无赞助或导流。不内置、不提供任何视频内容，仅作为播放与采集工具。弹幕通过弹弹play官方接口提供，需自备开发者凭证。
 
 ## 功能
 
 - 番剧浏览、搜索、详情与选集
 - 历史记录、播放进度与观看足迹
 - 遥控器焦点、高亮与列表滚动
+- 播放时显示实测分辨率
 - 播放、暂停、快进快退与上下集切换
 - 系统输入法搜索
 - 局域网检查更新
-- 弹弹play弹幕（需配置开发者凭证）
+- 弹弹play官方弹幕接口
 
 ## 支持设备
 
@@ -31,7 +32,7 @@
 | 页面 | 方向键 | 移动焦点 |
 | 首页、设置侧栏 | 上 / 下 | 移动菜单焦点，按 OK 切换内容 |
 | 页面 | OK / Back | 确认 / 返回 |
-| 播放中 | 左 / 右 | 快退 / 快进 10 秒 |
+| 播放中 | 左 / 右 | 按播放设置的跨度快退 / 快进，并显示进度条 |
 | 播放中 | OK / 菜单键 | 显示控制栏 |
 | 控制栏 | 方向键、OK | 选择并操作控件 |
 | 播放中 | Back | 先关闭控制栏；隐藏时两秒内按两次退出播放 |
@@ -45,9 +46,9 @@
 ```bash
 flutter pub get
 # Sony 电视包（v7a）
-bash tools/build_tv.sh 0.3.7 20331
+bash tools/build_tv.sh 0.3.19 20343
 # 仅构建电视包
-bash tools/build_tv.sh 0.3.7 20331 armeabi-v7a
+bash tools/build_tv.sh 0.3.19 20343 armeabi-v7a
 ```
 
 APK 命名为 `kazumi-tv-<ABI>-<版本>.apk`，输出到 `build/app/outputs/flutter-apk/`，同时发布到 `build/tv-updates/`。每次发布递增版本和构建号。
@@ -60,13 +61,9 @@ APK 命名为 `kazumi-tv-<ABI>-<版本>.apk`，输出到 `build/app/outputs/flut
 
 弹幕能力由 [弹弹play开放平台](https://doc.dandanplay.com/open/) 提供。使用前请在 [弹弹play开发者中心](https://dev.dandanplay.com/) 以开发者身份申请自己的 AppId 与 AppSecret。
 
-将 `tools/tv-secrets.example.json` 复制为 `.tv-secrets.json`，填写 `DANDANAPI_APPID` 与 `DANDANAPI_KEY` 后本地构建：
+在电视「设置 → 弹幕设置 → 弹幕服务」填写 App ID 和 App Secret，点击「保存并测试」。
 
-```bash
-cp tools/tv-secrets.example.json .tv-secrets.json
-```
-
-凭证为私有配置，已加入 `.gitignore`，不会提交到仓库；请勿向他人分发，也请勿将其内置进公开发布的 APK。仓库内容与公开发布产物均不包含任何弹幕凭证，未配置有效凭证的构建无法使用弹幕。使用弹幕请遵守弹弹play开放平台的相关协议。
+凭证仅保存在设备本地，Secret 隐藏显示，不写入 APK、日志或应用同步数据，也不提交到 GitHub。使用官方接口请遵守弹弹play开放平台协议。
 
 ## 开发
 

@@ -10,12 +10,15 @@ import 'package:kazumi/services/storage/storage.dart';
 class DanmakuApi {
   static final DanmakuClient _client = DanmakuClient.instance;
 
-  static Future<int> getDanDanBangumiIDByBgmBangumiID(int bgmBangumiID) async {
+  static Future<int> getDanDanBangumiIDByBgmBangumiID(
+    int bgmBangumiID, {
+    String? title,
+  }) async {
     final path = ApiEndpoints.formatUrl(
       ApiEndpoints.dandanAPIInfoByBgmBangumiId,
       [bgmBangumiID],
     );
-    final endPoint = ApiEndpoints.dandanAPIDomain + path;
+    final endPoint = DanmakuClient.apiBase + path;
     final jsonData = await _client.get(endPoint);
     return DanmakuEpisodeResponse.fromJson(jsonData).bangumiId;
   }
@@ -24,7 +27,7 @@ class DanmakuApi {
     int bangumiID,
   ) async {
     final path = ApiEndpoints.dandanAPIInfo + bangumiID.toString();
-    final endPoint = ApiEndpoints.dandanAPIDomain + path;
+    final endPoint = DanmakuClient.apiBase + path;
     final jsonData = await _client.get(endPoint);
     return DanmakuEpisodeResponse.fromJson(jsonData);
   }
@@ -33,7 +36,7 @@ class DanmakuApi {
   // Fetch full episode lists separately; search results can truncate them.
   static Future<DanmakuSearchResponse> searchAnimes(String title) async {
     final endPoint =
-        ApiEndpoints.dandanAPIDomain + ApiEndpoints.dandanAPISearchEpisodes;
+        DanmakuClient.apiBase + ApiEndpoints.dandanAPISearchEpisodes;
     final jsonData = await _client.get(
       endPoint,
       queryParameters: {'anime': title, 'v2': 'true'},
@@ -57,7 +60,7 @@ class DanmakuApi {
 
   static Future<List<DanmakuEntry>> _getComments(String episodeID) async {
     final endPoint =
-        '${ApiEndpoints.dandanAPIDomain}${ApiEndpoints.dandanAPIComment}$episodeID';
+        '${DanmakuClient.apiBase}${ApiEndpoints.dandanAPIComment}$episodeID';
     final conversion = DanmakuChConvert.fromValue(
       GStorage.getSetting(SettingsKeys.danmakuChConvert),
     );
@@ -70,6 +73,9 @@ class DanmakuApi {
       },
     );
     final List<dynamic> comments = jsonData['comments'];
-    return [for (final comment in comments) DanmakuEntry.fromJson(comment)];
+    return [for (final comment in comments) _parseComment(comment)];
   }
+
+  static DanmakuEntry _parseComment(Map<String, dynamic> comment) =>
+      DanmakuEntry.fromJson(comment);
 }

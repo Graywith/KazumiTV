@@ -6,6 +6,41 @@ import 'package:flutter/services.dart';
 
 const isTv = bool.fromEnvironment('KAZUMI_TV');
 
+/// TV actions use a light green resting state and a deep green focused state.
+/// Explicit selection/error colors remain intact until the button is focused.
+ButtonStyle tvFilledButtonStyle(ColorScheme colors, ButtonStyle style) {
+  if (!isTv) return style;
+  final dark = colors.brightness == Brightness.dark;
+  return style.copyWith(
+    backgroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) return null;
+      if (states.contains(WidgetState.focused)) {
+        return dark ? colors.primaryContainer : colors.primary;
+      }
+      return style.backgroundColor?.resolve(states) ??
+          (dark ? colors.primary : colors.primaryContainer);
+    }),
+    foregroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) return null;
+      if (states.contains(WidgetState.focused)) {
+        return dark ? colors.onPrimaryContainer : colors.onPrimary;
+      }
+      return style.foregroundColor?.resolve(states) ??
+          (dark ? colors.onPrimary : colors.onPrimaryContainer);
+    }),
+    overlayColor: WidgetStateProperty.resolveWith(
+      (states) => states.contains(WidgetState.focused)
+          ? Colors.transparent
+          : style.overlayColor?.resolve(states),
+    ),
+    side: WidgetStateProperty.resolveWith(
+      (states) => states.contains(WidgetState.focused)
+          ? BorderSide.none
+          : style.side?.resolve(states),
+    ),
+  );
+}
+
 /// Adds visible focus highlights to existing Material controls without replacing
 /// their activation, navigation, or business logic.
 class TvSupport extends StatefulWidget {
@@ -363,7 +398,10 @@ class _TvSupportState extends State<TvSupport> with WidgetsBindingObserver {
           style: buttonStyle(theme.textButtonTheme.style),
         ),
         filledButtonTheme: FilledButtonThemeData(
-          style: buttonStyle(theme.filledButtonTheme.style),
+          style: tvFilledButtonStyle(
+            theme.colorScheme,
+            buttonStyle(theme.filledButtonTheme.style),
+          ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: buttonStyle(theme.outlinedButtonTheme.style),
