@@ -46,9 +46,9 @@
 ```bash
 flutter pub get
 # Sony 电视包（v7a）
-bash tools/build_tv.sh 0.3.19 20343
+bash tools/build_tv.sh 0.3.20 20344
 # 仅构建电视包
-bash tools/build_tv.sh 0.3.19 20343 armeabi-v7a
+bash tools/build_tv.sh 0.3.20 20344 armeabi-v7a
 ```
 
 APK 命名为 `kazumi-tv-<ABI>-<版本>.apk`，输出到 `build/app/outputs/flutter-apk/`，同时发布到 `build/tv-updates/`。每次发布递增版本和构建号。

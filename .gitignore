@@ -59,3 +59,9 @@ android/build/reports/problems/
 # Private credentials for local TV builds
 .tv-secrets.json
 __pycache__/
+
+# Private Android icon overlays; repository branding stays unchanged.
+/.local/tv-icons/
+
+# Original personal icon backup
+/backup/

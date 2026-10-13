@@ -2,8 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # Next deliveries must increment both version and build number.
-version=${1:-0.3.19}
-build_number=${2:-20343}
+version=${1:-0.3.20}
+build_number=${2:-20344}
 abi=${3:-armeabi-v7a}
 if [[ "$abi" == all ]]; then
   bash "$0" "$version" "$build_number" arm64-v8a

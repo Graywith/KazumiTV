@@ -40,6 +40,10 @@ android {
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
+        // Build-type resources override main without editing tracked icons.
+        ['debug', 'profile', 'release'].each { name ->
+            maybeCreate(name).res.srcDir(rootProject.file('../.local/tv-icons/res'))
+        }
     }
 
     defaultConfig {
